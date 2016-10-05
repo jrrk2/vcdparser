@@ -23,14 +23,14 @@ open Vcd_parser
 let parse_vcd_ast_from_chan c =
   let lb = Lexing.from_channel c in
   let vcd = try
-      Vcd_lexer.lincnt := 1;
+      Scope.lincnt := 1;
       Vcd_parser.vcd_file Vcd_lexer.token lb
   with
     | Parsing.Parse_error ->
       let n = Lexing.lexeme_start lb in
       failwith (Printf.sprintf "Vcd.parse: parse error character %d" n)
     | _ ->
-      failwith (Printf.sprintf "Parser error at line %d" !Vcd_lexer.lincnt)
+      failwith (Printf.sprintf "Parser error at line %d" !Scope.lincnt)
   in
   close_in c;
   vcd
@@ -39,4 +39,4 @@ let parse_vcd_ast f =
   let c = open_in f in
   parse_vcd_ast_from_chan c
 
-let _ = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1)
+let _ = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1) else ([||],[])

@@ -18,39 +18,7 @@
 (*                                                                        *)
 (**************************************************************************)
 
-type kind =
-  | EVENT  
-  | INTEGER  
-  | PARAMETER  
-  | REAL  
-  | REG  
-  | SUPPLY0  
-  | SUPPLY1 
-  | TIME 
-  | TRI 
-  | TRIAND 
-  | TRIOR 
-  | TRIREG 
-  | TRI0 
-  | TRI1 
-  | WAND 
-  | WIRE 
-  | WOR 
-
-type range =
-  | SCALAR
-  | RANGE of (int*int)
-
-type block =
-  | BLOCK
-  | FILE
-  | MODULE
-  | FORK
-  | FUNCTION
-  | TASK
-
-type comment =
-  | STRING of string
+open Vcd_types
 
 type chng = 
   | VECTOR_CHANGE of (string*string)
@@ -83,9 +51,9 @@ let typnam = function
 
 let vars = Hashtbl.create 256
 
-let rec scopes verbose stem = function
+let rec scopes varlst verbose stem = function
 | VCD_SCOPE(kind,nam',token_list) ->
-    let nam = (if stem <> "" then stem^"." else "")^nam' in List.iter (scopes verbose nam) token_list;
+    let nam = (if stem <> "" then stem^"." else "")^nam' in List.iter (scopes varlst verbose nam) token_list;
     (match kind with
        | FILE -> ()
        | MODULE -> print_endline ("Module: "^nam)
@@ -95,7 +63,8 @@ let rec scopes verbose stem = function
        | TASK -> print_endline ("Task: "^nam))
 | NEWVAR(typ,num,enc,id,rng) -> let nam = stem^"."^id in
     if verbose then print_endline (typnam typ^": "^nam);
-    Hashtbl.add vars enc (typ,num,nam,rng)
+    Hashtbl.add vars enc (List.length !varlst);
+    varlst := (typ,num,nam,rng) :: !varlst
 | COMMENT _ -> ()
 | TIME_SCALE _ -> ()
 | VERSION -> ()
@@ -103,30 +72,23 @@ let rec scopes verbose stem = function
 | VECTOR_CHANGE _ -> ()
 | TIME_UNIT _ -> ()
 
-type chng' =
-| Tim of int
-| Chng of string*char
-| Vect of string*string
-| Change of string*char
-| Vector of string*string
-
-let chnglst = ref []
 let errlst = ref []
+let lincnt = ref 1
 
 let scalar_change (enc,lev) = if Hashtbl.mem vars enc then
-      let (typ,num,nam,rng) = Hashtbl.find vars enc in
-      chnglst := Chng(nam,lev) :: !chnglst
+      let idx = Hashtbl.find vars enc in
+      Chng(!lincnt,idx,lev)
       else (errlst := Change(enc,lev) :: !errlst; failwith ("encoding "^enc^" not found"))
 
 let vector_change (lev,enc) = if Hashtbl.mem vars enc then
-      let (typ,num,nam,rng) = Hashtbl.find vars enc in
-      chnglst := Vect(nam,lev) :: !chnglst
+      let idx = Hashtbl.find vars enc in
+      Vect(!lincnt,idx,lev)
       else (errlst := Vector(lev,enc) :: !errlst; failwith ("encoding "^enc^" not found"))
 
 let sim_time (s,n) =
-      chnglst := Tim n :: !chnglst
+      Tim n
 
-let dumpall () = ()
-let dumpon () = ()
-let dumpoff () = ()
-let dumpvars () = ()
+let dumpall () = Nochange
+let dumpon () = Nochange
+let dumpoff () = Nochange
+let dumpvars () = Nochange

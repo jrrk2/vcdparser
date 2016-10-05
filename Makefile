@@ -21,11 +21,11 @@
 MENHIR=/usr/lib/ocaml/menhirLib
 MFLAGS=#--trace
 
-vcdparser.top: vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
-	ocamlmktop -o $@ -I $(MENHIR) $(MENHIR)/menhirLib.cmo vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
+vcdparser.top: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
+	ocamlmktop -o $@ -I $(MENHIR) $(MENHIR)/menhirLib.cmo vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
 
-vcdparser: vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
-	ocamlopt -o $@ -I $(MENHIR) $(MENHIR)/menhirLib.cmx vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
+vcdparser: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
+	ocamlopt -o $@ -I $(MENHIR) $(MENHIR)/menhirLib.cmx vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
 
 vcd_lexer.ml: vcd_lexer.mll
 	ocamllex vcd_lexer.mll

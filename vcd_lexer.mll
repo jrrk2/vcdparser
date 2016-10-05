@@ -22,8 +22,6 @@
   open Lexing
   open Vcd_parser
 
-  let lincnt = ref 1
-
   let keyword =
     let h = Hashtbl.create 17 in
     List.iter 
@@ -82,7 +80,7 @@ rule token = parse
   | space
       { token lexbuf }
   | newline
-      { incr lincnt; NEWLINE }
+      { incr Scope.lincnt; NEWLINE }
   | bin_num as s
       { BIN_NUM s }
   | dec_num as s

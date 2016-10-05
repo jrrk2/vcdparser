@@ -22,7 +22,7 @@
 
 %{
   open Parsing
-  open Scope
+  open Vcd_types
 %}
 
 %token    NEWLINE
@@ -72,8 +72,8 @@
 %token    ML_COMMENT;
 %token    EOF
 
-%type <unit> vcd_file
-%type <Scope.kind> var_type
+%type <(Vcd_types.kind * string * string * Vcd_types.range) array*Vcd_types.chng' list> vcd_file
+%type <Vcd_types.kind> var_type
 %start vcd_file
 %%
 
@@ -81,12 +81,15 @@
 /* Parser rules */
 
 vcd_file:
-    vcd_header simulation_command_list EOF { () }
+    vcd_header simulation_command_list EOF { ($1,List.rev $2) }
 
 // HEADER
 vcd_header:
     decl_command_list ENDDEFNS END NEWLINE NEWLINE
-        { Hashtbl.clear vars; scopes false "" (VCD_SCOPE(FILE, "", $1)) }
+        { Hashtbl.clear Scope.vars;
+	  let varlst = ref [] in
+	  Scope.scopes varlst false "" (Scope.VCD_SCOPE(FILE, "", $1));
+	  Array.of_list (List.rev !varlst) }
     ;
 
 decl_command_list:
@@ -107,15 +110,15 @@ decl_command:
 ;
 
 vcd_decl_date 
-    : DATE NEWLINE IDENTIFIER IDENTIFIER DEC_NUM IDENTIFIER DEC_NUM NEWLINE END NEWLINE { DATE }
+    : DATE NEWLINE IDENTIFIER IDENTIFIER DEC_NUM IDENTIFIER DEC_NUM NEWLINE END NEWLINE { Scope.DATE }
     ;
 
 vcd_decl_version 
-    : VERSION NEWLINE IDENTIFIER IDENTIFIER IDENTIFIER IDENTIFIER NEWLINE END NEWLINE { VERSION }
+    : VERSION NEWLINE IDENTIFIER IDENTIFIER IDENTIFIER IDENTIFIER NEWLINE END NEWLINE { Scope.VERSION }
     ;
 
 vcd_decl_comment 
-    : ML_COMMENT identifier_list END NEWLINE { COMMENT $2 }
+    : ML_COMMENT identifier_list END NEWLINE { Scope.COMMENT $2 }
     ;
 
 identifier_list:
@@ -128,12 +131,12 @@ identifier_list:
 
 vcd_decl_timescale
     : TIMESCALE NEWLINE TIME_UNIT NEWLINE END NEWLINE
-        { TIME_SCALE $3 }
+        { Scope.TIME_SCALE $3 }
     ;
 
 vcd_scope
     : SCOPE scope_type IDENTIFIER END decl_command_list UPSCOPE END NEWLINE
-        { VCD_SCOPE($2, $3, $5) }
+        { Scope.VCD_SCOPE($2, $3, $5) }
     ;
 
 scope_type:
@@ -146,7 +149,7 @@ scope_type:
 
 vcd_decl_var
     : VAR var_type DEC_NUM encoding IDENTIFIER range END NEWLINE
-        { NEWVAR($2,$3,$4,$5,$6) }
+        { Scope.NEWVAR($2,$3,$4,$5,$6) }
     ;
 
 encoding:
@@ -185,25 +188,25 @@ var_type
 //COMMANDS
 
 simulation_command_list:
-							{ () }
-	| simulation_command_list simulation_command	{ () }
+							{ [] }
+	| simulation_command_list simulation_command	{ $2 :: $1 }
 	;
 
 simulation_command:
-		SIM_TIME NEWLINE	   { sim_time $1 }
-	|	IDENTIFIER NEWLINE	   { scalar_change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	DEC_NUM NEWLINE 	   { scalar_change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	BIN_NUM NEWLINE 	   { scalar_change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	TIME_UNIT NEWLINE 	   { scalar_change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	BIN_NUM IDENTIFIER NEWLINE { vector_change ($1,$2) }
-	|	BIN_NUM DEC_NUM NEWLINE    { vector_change ($1,$2) }
-	|	BIN_NUM BIN_NUM NEWLINE    { vector_change ($1,$2) }
-	|	BIN_NUM TIME_UNIT NEWLINE  { vector_change ($1,$2) }
-	|	BIN_NUM SIM_TIME NEWLINE   { vector_change ($1,fst $2) }
-	|	ML_COMMENT NEWLINE         { () }
-	|	DUMPALL NEWLINE 	   { dumpall() }
-	| 	DUMPON NEWLINE 		   { dumpon() }
-	| 	DUMPOFF NEWLINE 	   { dumpoff() }
-	| 	DUMPVARS NEWLINE	   { dumpvars() }
-	| 	END NEWLINE		   { () }
+		SIM_TIME NEWLINE	   { Scope.sim_time $1 }
+	|	IDENTIFIER NEWLINE	   { Scope.scalar_change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
+	|	DEC_NUM NEWLINE 	   { Scope.scalar_change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
+	|	BIN_NUM NEWLINE 	   { Scope.scalar_change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
+	|	TIME_UNIT NEWLINE 	   { Scope.scalar_change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
+	|	BIN_NUM IDENTIFIER NEWLINE { Scope.vector_change ($1,$2) }
+	|	BIN_NUM DEC_NUM NEWLINE    { Scope.vector_change ($1,$2) }
+	|	BIN_NUM BIN_NUM NEWLINE    { Scope.vector_change ($1,$2) }
+	|	BIN_NUM TIME_UNIT NEWLINE  { Scope.vector_change ($1,$2) }
+	|	BIN_NUM SIM_TIME NEWLINE   { Scope.vector_change ($1,fst $2) }
+	|	ML_COMMENT NEWLINE         { Nochange }
+	|	DUMPALL NEWLINE 	   { Scope.dumpall() }
+	| 	DUMPON NEWLINE 		   { Scope.dumpon() }
+	| 	DUMPOFF NEWLINE 	   { Scope.dumpoff() }
+	| 	DUMPVARS NEWLINE	   { Scope.dumpvars() }
+	| 	END NEWLINE		   { Nochange }
 	;

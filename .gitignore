@@ -1,0 +1,11 @@
+*~
+*.cmi
+*.cmo
+*.cmx
+*.o
+ord.ml
+vcd_lexer.ml
+vcd_parser.ml
+vcd_parser.mli
+vcdparser
+vcdparser.top
