@@ -21,6 +21,10 @@
 MENHIR=/usr/lib/ocaml/menhirLib
 MFLAGS=#--trace
 
+.PHONY: everything
+
+everything: vcdparser.top vcdparser
+
 vcdparser.top: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
 	ocamlmktop -g -o $@ -I $(MENHIR) $(MENHIR)/menhirLib.cmo vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
 

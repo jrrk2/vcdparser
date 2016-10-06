@@ -33,10 +33,21 @@ type block =
 type comment =
   | STRING of string
 
-type chng' =
+type scoping = 
+  | VCD_SCOPE of (block*string*scoping list)
+  | NEWVAR of (kind*int*string*string*range)
+  | TIME_UNIT of (string)
+  | TIME_SCALE of (string)
+  | COMMENT of (comment list)
+  | VERSION
+  | DATE
+
+type chng =
 | Tim of int
-| Chng of int*int*char
-| Vect of int*int*string
 | Change of string*char
 | Vector of string*string
 | Nochange
+| Dumpvars
+| Dumpall
+| Dumpon
+| Dumpoff

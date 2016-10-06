@@ -22,4 +22,4 @@ open Vcd
 open Scope
 open Vcd_parser
 
-let rslt = parse_vcd_ast "../xori.dump";;
+let (arr,chngs) = parse_vcd_ast "../xori.dump";;

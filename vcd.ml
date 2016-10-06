@@ -18,9 +18,11 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Vcd_parser
+open Vcd_types
 
-let _ = Gc.set { (Gc.get()) with Gc.major_heap_increment = 1048576;  Gc.max_overhead = 1048576; Gc.allocation_policy = 1; }
+(*
+ let _ = Gc.set { (Gc.get()) with Gc.major_heap_increment = 1048576;  Gc.max_overhead = 1048576; Gc.allocation_policy = 1; }
+ *)
 
 let parse_vcd_ast_from_chan c =
   let lb = Lexing.from_channel c in
@@ -39,8 +41,64 @@ let parse_vcd_ast_from_chan c =
   close_in c;
   vcd
 
-let parse_vcd_ast f =
-  let c = open_in f in
-  parse_vcd_ast_from_chan c
+let errlst = ref []
 
-let _ = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1) else ([||],[])
+let readscopes vars arg =
+      let (varlen,varlst) = (ref 0, ref []) in
+      Scope.scopes vars varlen varlst false [] (VCD_SCOPE(FILE, "", arg));
+      let crnt = Bytes.make !varlen 'x' in
+      assert(List.length !varlst == !varlen);
+      (ref [(0,!varlen,crnt)], Array.of_list (List.rev !varlst))
+	  
+let scalar_change vars crnt enc lev = if Hashtbl.mem vars enc then
+      let idx = Hashtbl.find vars enc in
+      Bytes.set crnt idx lev
+      else (errlst := Change(enc,lev) :: !errlst; failwith ("encoding "^enc^" not found"))
+
+let vector_change vars crnt lev enc = if Hashtbl.mem vars enc then
+      let idx = Hashtbl.find vars enc in
+      let cnt = String.length lev - 1 in
+      for i = 1 to cnt do
+        let off = idx+cnt-i in
+        Bytes.set crnt off lev.[i];
+      done
+      else (errlst := Vector(lev,enc) :: !errlst; failwith ("encoding "^enc^" not found"))
+
+let simx crntlst =
+        let (tim,xcnt,hd) = List.hd crntlst in
+        let tl = List.tl crntlst in
+        let cnt = ref 0 in
+        for i = 0 to String.length hd - 1 do if hd.[i] = 'x' then incr cnt done;
+	(tim,!cnt,hd) :: tl
+
+let sim_time crntlst n =
+        let (_,_,hd) = List.hd !crntlst in
+	crntlst := (n,0,Bytes.copy hd) :: simx !crntlst
+
+let parse_vcd_ast f =
+  let vars = Hashtbl.create 131071 in
+  let chan = open_in f in
+  let scopes,chnglst = parse_vcd_ast_from_chan chan in
+  let crntlst, arr = readscopes vars scopes in
+  List.iter (function
+    | Tim n -> sim_time crntlst n
+    | Change (enc,lev) -> let (_,_,hd) = List.hd !crntlst in scalar_change vars hd enc lev
+    | Vector (lev,enc) -> let (_,_,hd) = List.hd !crntlst in vector_change vars hd lev enc
+    | Nochange -> ()
+    | Dumpvars -> ()
+    | Dumpall -> ()
+    | Dumpon -> ()
+    | Dumpoff -> ())
+    chnglst;
+  (arr,Array.of_list (List.tl (List.rev (simx !crntlst))))
+
+let xanal chngs =
+  let (tim,xcnt,_) = chngs.(0) in
+  let minx = ref (0,xcnt) in
+  Array.iteri (fun ix (tim,xcnt,_) -> if xcnt < snd (!minx) then minx := (ix,xcnt)) chngs;
+  let (tim',xcnt',_) = chngs.(fst !minx) in
+  print_endline ("X minimum of "^string_of_int xcnt'^" (out of "^ string_of_int xcnt^") occured at time "^string_of_int tim')
+  
+let (arr,chngs) = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1) else ([||],[||])
+
+let _ = if Array.length chngs > 0 then xanal chngs

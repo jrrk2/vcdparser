@@ -23,9 +23,6 @@
 %{
   open Parsing
   open Vcd_types
-
-  let vars = Hashtbl.create 256
-
 %}
 
 %token    NEWLINE
@@ -75,7 +72,7 @@
 %token    ML_COMMENT;
 %token    EOF
 
-%type <(Vcd_types.kind * string list * Vcd_types.range) array*Vcd_types.chng' list> vcd_file
+%type <Vcd_types.scoping list*Vcd_types.chng list> vcd_file
 %type <Vcd_types.kind> var_type
 %start vcd_file
 %%
@@ -89,12 +86,7 @@ vcd_file:
 // HEADER
 vcd_header:
     decl_command_list ENDDEFNS END NEWLINE NEWLINE
-        { Hashtbl.clear vars;
-	  let varlst = ref [] in
-	  Scope.scopes vars varlst false [] (Scope.VCD_SCOPE(FILE, "", $1));
-	  Hashtbl.clear Scope.changes;
-	  Scope.crnt := Bytes.make (List.length !varlst) 'x';
-	  Array.of_list (List.rev !varlst) }
+        { List.rev $1 }
     ;
 
 decl_command_list:
@@ -115,15 +107,15 @@ decl_command:
 ;
 
 vcd_decl_date 
-    : DATE NEWLINE IDENTIFIER IDENTIFIER DEC_NUM IDENTIFIER DEC_NUM NEWLINE END NEWLINE { Scope.DATE }
+    : DATE NEWLINE IDENTIFIER IDENTIFIER DEC_NUM IDENTIFIER DEC_NUM NEWLINE END NEWLINE { DATE }
     ;
 
 vcd_decl_version 
-    : VERSION NEWLINE IDENTIFIER IDENTIFIER IDENTIFIER IDENTIFIER NEWLINE END NEWLINE { Scope.VERSION }
+    : VERSION NEWLINE IDENTIFIER IDENTIFIER IDENTIFIER IDENTIFIER NEWLINE END NEWLINE { VERSION }
     ;
 
 vcd_decl_comment 
-    : ML_COMMENT identifier_list END NEWLINE { Scope.COMMENT $2 }
+    : ML_COMMENT identifier_list END NEWLINE { COMMENT $2 }
     ;
 
 identifier_list:
@@ -136,12 +128,12 @@ identifier_list:
 
 vcd_decl_timescale
     : TIMESCALE NEWLINE TIME_UNIT NEWLINE END NEWLINE
-        { Scope.TIME_SCALE $3 }
+        { TIME_SCALE $3 }
     ;
 
 vcd_scope
     : SCOPE scope_type IDENTIFIER END decl_command_list UPSCOPE END NEWLINE
-        { Scope.VCD_SCOPE($2, $3, $5) }
+        { VCD_SCOPE($2, $3, $5) }
     ;
 
 scope_type:
@@ -154,7 +146,7 @@ scope_type:
 
 vcd_decl_var
     : VAR var_type DEC_NUM encoding IDENTIFIER range END NEWLINE
-        { Scope.NEWVAR($2,int_of_string $3,$4,$5,$6) }
+        { NEWVAR($2,int_of_string $3,$4,$5,$6) }
     ;
 
 encoding:
@@ -198,20 +190,20 @@ simulation_command_list:
 	;
 
 simulation_command:
-		SIM_TIME NEWLINE	   { Scope.sim_time $1 }
-	|	IDENTIFIER NEWLINE	   { Scope.scalar_change vars  (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	DEC_NUM NEWLINE 	   { Scope.scalar_change vars  (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	BIN_NUM NEWLINE 	   { Scope.scalar_change vars  (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	TIME_UNIT NEWLINE 	   { Scope.scalar_change vars  (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	BIN_NUM IDENTIFIER NEWLINE { Scope.vector_change vars  ($1,$2) }
-	|	BIN_NUM DEC_NUM NEWLINE    { Scope.vector_change vars  ($1,$2) }
-	|	BIN_NUM BIN_NUM NEWLINE    { Scope.vector_change vars  ($1,$2) }
-	|	BIN_NUM TIME_UNIT NEWLINE  { Scope.vector_change vars  ($1,$2) }
-	|	BIN_NUM SIM_TIME NEWLINE   { Scope.vector_change vars  ($1,fst $2) }
+		SIM_TIME NEWLINE	   { Tim (snd $1) }
+	|	IDENTIFIER NEWLINE	   { Change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
+	|	DEC_NUM NEWLINE 	   { Change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
+	|	BIN_NUM NEWLINE 	   { Change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
+	|	TIME_UNIT NEWLINE 	   { Change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
+	|	BIN_NUM IDENTIFIER NEWLINE { Vector  ($1,$2) }
+	|	BIN_NUM DEC_NUM NEWLINE    { Vector  ($1,$2) }
+	|	BIN_NUM BIN_NUM NEWLINE    { Vector  ($1,$2) }
+	|	BIN_NUM TIME_UNIT NEWLINE  { Vector  ($1,$2) }
+	|	BIN_NUM SIM_TIME NEWLINE   { Vector  ($1,fst $2) }
 	|	ML_COMMENT NEWLINE         { Nochange }
-	|	DUMPALL NEWLINE 	   { Scope.dumpall() }
-	| 	DUMPON NEWLINE 		   { Scope.dumpon() }
-	| 	DUMPOFF NEWLINE 	   { Scope.dumpoff() }
-	| 	DUMPVARS NEWLINE	   { Scope.dumpvars() }
+	|	DUMPALL NEWLINE 	   { Dumpall }
+	| 	DUMPON NEWLINE 		   { Dumpon }
+	| 	DUMPOFF NEWLINE 	   { Dumpoff }
+	| 	DUMPVARS NEWLINE	   { Dumpvars }
 	| 	END NEWLINE		   { Nochange }
 	;
