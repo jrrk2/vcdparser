@@ -25,17 +25,17 @@ MFLAGS=#--trace
 
 everything: vcdparser.top vcdparser
 
-vcdparser.top: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
-	ocamlmktop -g -o $@ -I $(MENHIR) $(MENHIR)/menhirLib.cmo vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
+vcdparser.top: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml plot.ml vcd.ml
+	ocamlfind ocamlmktop -package gnuplot,menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml plot.ml vcd.ml
 
-vcdparser: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
-	ocamlopt -g -o $@ -I $(MENHIR) $(MENHIR)/menhirLib.cmx vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
+vcdparser: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml plot.ml vcd.ml
+	ocamlfind ocamlopt -package gnuplot,menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml plot.ml vcd.ml
 
 vcd_lexer.ml: vcd_lexer.mll
 	ocamllex vcd_lexer.mll
 
 vcd_parser.mli vcd_parser.ml: vcd_parser.mly
-	menhir --table $(MFLAGS) vcd_parser.mly 
+	ocamlyacc vcd_parser.mly 
 
 ord.ml: ord.sh vcd_parser.mli
 	sh ord.sh

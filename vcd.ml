@@ -38,7 +38,7 @@ let parse_vcd_ast_from_chan c =
       failwith (Printf.sprintf "Parser error at line %d" !Scope.lincnt)
 *)
   in
-  close_in c;
+  Pervasives.close_in c;
   vcd
 
 let errlst = ref []
@@ -46,7 +46,7 @@ let errlst = ref []
 let readscopes vars arg =
       let (varlen,varlst) = (ref 0, ref []) in
       Scope.scopes vars varlen varlst false [] (VCD_SCOPE(FILE, "", arg));
-      let crnt = Bytes.make !varlen 'x' in
+      let crnt = Bytes.init !varlen (fun _ -> 'x') in
       assert(List.length !varlst == !varlen);
       (ref [(0,!varlen,crnt)], Array.of_list (List.rev !varlst))
 	  
@@ -95,9 +95,11 @@ let parse_vcd_ast f =
 let xanal chngs =
   let (tim,xcnt,_) = chngs.(0) in
   let minx = ref (0,xcnt) in
-  Array.iteri (fun ix (tim,xcnt,_) -> if xcnt < snd (!minx) then minx := (ix,xcnt)) chngs;
+  let plotlst = ref [] in
+  Array.iteri (fun ix (tim,xcnt,_) -> plotlst := (float_of_int tim,float_of_int xcnt) :: !plotlst; if xcnt < snd (!minx) then minx := (ix,xcnt)) chngs;
   let (tim',xcnt',_) = chngs.(fst !minx) in
-  print_endline ("X minimum of "^string_of_int xcnt'^" (out of "^ string_of_int xcnt^") occured at time "^string_of_int tim')
+  print_endline ("X minimum of "^string_of_int xcnt'^" (out of "^ string_of_int xcnt^") occured at time "^string_of_int tim');
+  Plot.plot !plotlst
   
 let (arr,chngs) = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1) else ([||],[||])
 
