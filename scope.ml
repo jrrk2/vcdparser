@@ -23,7 +23,7 @@ open Vcd_types
 type chng = 
   | VECTOR_CHANGE of (string*string)
   | VCD_SCOPE of (block*string*chng list)
-  | NEWVAR of (kind*string*string*string*range)
+  | NEWVAR of (kind*int*string*string*range)
   | TIME_UNIT of (string)
   | TIME_SCALE of (string)
   | COMMENT of (comment list)
@@ -49,22 +49,28 @@ let typnam = function
   | WIRE -> "WIRE"
   | WOR -> "WOR"
 
-let vars = Hashtbl.create 256
+let rec path = function
+  | [] -> ()
+  | hd :: tl -> path tl; print_char '.'; print_string hd
 
-let rec scopes varlst verbose stem = function
+let rec scopes vars varlst verbose stem = function
 | VCD_SCOPE(kind,nam',token_list) ->
-    let nam = (if stem <> "" then stem^"." else "")^nam' in List.iter (scopes varlst verbose nam) token_list;
+    let nam = (if String.length nam' > 0 then nam' :: stem else stem) in List.iter (scopes vars varlst verbose nam) token_list;
     (match kind with
        | FILE -> ()
-       | MODULE -> print_endline ("Module: "^nam)
-       | BLOCK -> print_endline ("Block: "^nam)
-       | FORK -> print_endline ("Fork: "^nam)
-       | FUNCTION -> print_endline ("Function: "^nam)
-       | TASK -> print_endline ("Task: "^nam))
-| NEWVAR(typ,num,enc,id,rng) -> let nam = stem^"."^id in
-    if verbose then print_endline (typnam typ^": "^nam);
+       | MODULE -> print_string "Module: "; path nam; print_newline ()
+       | BLOCK -> print_string "Block: "; path nam; print_newline ()
+       | FORK -> print_string "Fork: "; path nam; print_newline ()
+       | FUNCTION -> print_string "Function: "; path nam; print_newline ()
+       | TASK -> print_string "Task: "; path nam; print_newline ())
+| NEWVAR(typ,num,enc,id,RANGE(hi,lo)) -> let nam = id :: stem in
+    if verbose then (print_string (typnam typ); print_string ": "; path nam; print_newline ());
     Hashtbl.add vars enc (List.length !varlst);
-    varlst := (typ,num,nam,rng) :: !varlst
+    for i = 0 to num-1 do varlst := (typ,string_of_int (i+lo) :: nam,RANGE(hi,lo)) :: !varlst; done
+| NEWVAR(typ,num,enc,id,SCALAR) -> let nam = id :: stem in
+    if verbose then (print_string (typnam typ); print_string ": "; path nam; print_newline ());
+    Hashtbl.add vars enc (List.length !varlst);
+    varlst := (typ,nam,SCALAR) :: !varlst
 | COMMENT _ -> ()
 | TIME_SCALE _ -> ()
 | VERSION -> ()
@@ -74,19 +80,32 @@ let rec scopes varlst verbose stem = function
 
 let errlst = ref []
 let lincnt = ref 1
+let changes = Hashtbl.create 256
+let crnt = ref (Bytes.create 0)
 
-let scalar_change (enc,lev) = if Hashtbl.mem vars enc then
+let scalar_change vars (enc,lev) = if Hashtbl.mem vars enc then
       let idx = Hashtbl.find vars enc in
+      Bytes.set !crnt idx lev;
       Chng(!lincnt,idx,lev)
       else (errlst := Change(enc,lev) :: !errlst; failwith ("encoding "^enc^" not found"))
 
-let vector_change (lev,enc) = if Hashtbl.mem vars enc then
+let vector_change vars (lev,enc) = if Hashtbl.mem vars enc then
       let idx = Hashtbl.find vars enc in
+      let cnt = String.length lev - 1 in
+      let lmt = String.length !crnt in
+      for i = 1 to cnt do
+        let off = idx+cnt-i in
+	assert (off >= 0 && off < lmt);
+        Bytes.set !crnt off lev.[i];
+      done;
       Vect(!lincnt,idx,lev)
       else (errlst := Vector(lev,enc) :: !errlst; failwith ("encoding "^enc^" not found"))
 
 let sim_time (s,n) =
-      Tim n
+        let nxt = Bytes.copy !crnt in
+	Hashtbl.add changes (n:int) nxt;
+	crnt := nxt;
+	Tim n
 
 let dumpall () = Nochange
 let dumpon () = Nochange

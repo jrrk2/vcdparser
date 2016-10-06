@@ -20,6 +20,8 @@
 
 open Vcd_parser
 
+let _ = Gc.set { (Gc.get()) with Gc.major_heap_increment = 1048576;  Gc.max_overhead = 1048576; Gc.allocation_policy = 1; }
+
 let parse_vcd_ast_from_chan c =
   let lb = Lexing.from_channel c in
   let vcd = try
@@ -29,8 +31,10 @@ let parse_vcd_ast_from_chan c =
     | Parsing.Parse_error ->
       let n = Lexing.lexeme_start lb in
       failwith (Printf.sprintf "Vcd.parse: parse error character %d" n)
+(*
     | _ ->
       failwith (Printf.sprintf "Parser error at line %d" !Scope.lincnt)
+*)
   in
   close_in c;
   vcd

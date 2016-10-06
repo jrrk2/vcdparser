@@ -23,6 +23,9 @@
 %{
   open Parsing
   open Vcd_types
+
+  let vars = Hashtbl.create 256
+
 %}
 
 %token    NEWLINE
@@ -72,7 +75,7 @@
 %token    ML_COMMENT;
 %token    EOF
 
-%type <(Vcd_types.kind * string * string * Vcd_types.range) array*Vcd_types.chng' list> vcd_file
+%type <(Vcd_types.kind * string list * Vcd_types.range) array*Vcd_types.chng' list> vcd_file
 %type <Vcd_types.kind> var_type
 %start vcd_file
 %%
@@ -86,9 +89,11 @@ vcd_file:
 // HEADER
 vcd_header:
     decl_command_list ENDDEFNS END NEWLINE NEWLINE
-        { Hashtbl.clear Scope.vars;
+        { Hashtbl.clear vars;
 	  let varlst = ref [] in
-	  Scope.scopes varlst false "" (Scope.VCD_SCOPE(FILE, "", $1));
+	  Scope.scopes vars varlst false [] (Scope.VCD_SCOPE(FILE, "", $1));
+	  Hashtbl.clear Scope.changes;
+	  Scope.crnt := Bytes.make (List.length !varlst) 'x';
 	  Array.of_list (List.rev !varlst) }
     ;
 
@@ -149,7 +154,7 @@ scope_type:
 
 vcd_decl_var
     : VAR var_type DEC_NUM encoding IDENTIFIER range END NEWLINE
-        { Scope.NEWVAR($2,$3,$4,$5,$6) }
+        { Scope.NEWVAR($2,int_of_string $3,$4,$5,$6) }
     ;
 
 encoding:
@@ -194,15 +199,15 @@ simulation_command_list:
 
 simulation_command:
 		SIM_TIME NEWLINE	   { Scope.sim_time $1 }
-	|	IDENTIFIER NEWLINE	   { Scope.scalar_change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	DEC_NUM NEWLINE 	   { Scope.scalar_change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	BIN_NUM NEWLINE 	   { Scope.scalar_change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	TIME_UNIT NEWLINE 	   { Scope.scalar_change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	BIN_NUM IDENTIFIER NEWLINE { Scope.vector_change ($1,$2) }
-	|	BIN_NUM DEC_NUM NEWLINE    { Scope.vector_change ($1,$2) }
-	|	BIN_NUM BIN_NUM NEWLINE    { Scope.vector_change ($1,$2) }
-	|	BIN_NUM TIME_UNIT NEWLINE  { Scope.vector_change ($1,$2) }
-	|	BIN_NUM SIM_TIME NEWLINE   { Scope.vector_change ($1,fst $2) }
+	|	IDENTIFIER NEWLINE	   { Scope.scalar_change vars  (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
+	|	DEC_NUM NEWLINE 	   { Scope.scalar_change vars  (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
+	|	BIN_NUM NEWLINE 	   { Scope.scalar_change vars  (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
+	|	TIME_UNIT NEWLINE 	   { Scope.scalar_change vars  (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
+	|	BIN_NUM IDENTIFIER NEWLINE { Scope.vector_change vars  ($1,$2) }
+	|	BIN_NUM DEC_NUM NEWLINE    { Scope.vector_change vars  ($1,$2) }
+	|	BIN_NUM BIN_NUM NEWLINE    { Scope.vector_change vars  ($1,$2) }
+	|	BIN_NUM TIME_UNIT NEWLINE  { Scope.vector_change vars  ($1,$2) }
+	|	BIN_NUM SIM_TIME NEWLINE   { Scope.vector_change vars  ($1,fst $2) }
 	|	ML_COMMENT NEWLINE         { Nochange }
 	|	DUMPALL NEWLINE 	   { Scope.dumpall() }
 	| 	DUMPON NEWLINE 		   { Scope.dumpon() }
