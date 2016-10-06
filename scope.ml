@@ -43,30 +43,31 @@ let typnam = function
   | WIRE -> "WIRE"
   | WOR -> "WOR"
 
-let rec path = function
+let rec path chan = function
   | [] -> ()
-  | Pstr hd :: [] -> print_string hd
-  | Pstr hd :: tl -> path tl; print_char '.'; print_string hd
-  | Pidx hd :: tl -> path tl; print_char '['; print_int hd; print_char ']'
+  | Pstr hd :: [] -> output_string chan hd
+  | Pstr hd :: tl -> path chan tl; output_char chan '.'; output_string chan hd
+  | Pidx hd :: tl -> path chan tl; output_char chan '['; output_string chan (string_of_int hd); output_char chan ']'
 
 let rec scopes vars varlen varlst verbose stem = function
 | VCD_SCOPE(kind,nam',token_list) ->
     let nam = (if String.length nam' > 0 then Pstr nam' :: stem else stem) in List.iter (scopes vars varlen varlst verbose nam) token_list;
     if verbose then (match kind with
        | FILE -> ()
-       | MODULE -> print_string "Module: "; path nam; print_newline ()
-       | BLOCK -> print_string "Block: "; path nam; print_newline ()
-       | FORK -> print_string "Fork: "; path nam; print_newline ()
-       | FUNCTION -> print_string "Function: "; path nam; print_newline ()
-       | TASK -> print_string "Task: "; path nam; print_newline ())
-| NEWVAR(typ,num,enc,id,(RANGE(hi,lo) as rng)) -> let nam = Pstr id :: stem in
-    if verbose then (print_string (typnam typ); print_string ": "; path nam; print_newline ());
+       | MODULE -> prerr_string "Module: "; path stderr nam; prerr_newline ()
+       | BLOCK -> prerr_string "Block: "; path stderr nam; prerr_newline ()
+       | FORK -> prerr_string "Fork: "; path stderr nam; prerr_newline ()
+       | FUNCTION -> prerr_string "Function: "; path stderr nam; prerr_newline ()
+       | TASK -> prerr_string "Task: "; path stderr nam; prerr_newline ())
+| NEWVAR(REG as typ,num,enc,id,(RANGE(hi,lo) as rng)) -> let nam = Pstr id :: stem in
+    if verbose then (prerr_string (typnam typ); prerr_string ": "; path stderr nam; prerr_newline ());
     Hashtbl.add vars enc !varlen;
     for i = 0 to num-1 do incr varlen; varlst := (typ, Pidx (i+lo) :: nam, rng) :: !varlst; done
-| NEWVAR(typ,num,enc,id,SCALAR) -> let nam = Pstr id :: stem in
-    if verbose then (print_string (typnam typ); print_string ": "; path nam; print_newline ());
+| NEWVAR(REG as typ,num,enc,id,SCALAR) -> let nam = Pstr id :: stem in
+    if verbose then (prerr_string (typnam typ); prerr_string ": "; path stderr nam; prerr_newline ());
     Hashtbl.add vars enc !varlen;
     incr varlen; varlst := (typ,nam,SCALAR) :: !varlst
+| NEWVAR(_,_,enc,_,_) -> Hashtbl.add vars enc (-1)
 | COMMENT _ -> ()
 | TIME_SCALE _ -> ()
 | VERSION -> ()
