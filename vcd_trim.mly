@@ -23,6 +23,7 @@
 %{
   open Parsing
   open Vcd_types
+  open Scope
 %}
 
 %token    NEWLINE
@@ -72,21 +73,26 @@
 %token    ML_COMMENT;
 %token    EOF
 
-%type <Vcd_types.scoping list*Vcd_types.chng list> vcd_file
+%type <int * (Vcd_types.kind * Scope.pth list * Vcd_types.range) array> vcd_file
 %type <Vcd_types.kind> var_type
+%type <unit> simulation_command_list
 %start vcd_file
 %%
-
 
 /* Parser rules */
 
 vcd_file:
-    vcd_header simulation_command_list EOF { ($1,List.rev $2) }
+    vcd_header simulation_command_list EOF { close_out !Scope.fd; $1 }
 
 // HEADER
 vcd_header:
-    decl_command_list ENDDEFNS END NEWLINE NEWLINE
-        { List.rev $1 }
+    decl_command_list ENDDEFNS END linlst
+        { readscopes (List.rev $1) }
+    ;
+
+linlst:
+    NEWLINE { () }
+    | linlst NEWLINE { () }
     ;
 
 decl_command_list:
@@ -133,7 +139,7 @@ vcd_decl_timescale
 
 vcd_scope
     : SCOPE scope_type IDENTIFIER END decl_command_list UPSCOPE END NEWLINE
-        { VCD_SCOPE($2, $3, $5) }
+        { VCD_SCOPE($2, $3, List.rev $5) }
     ;
 
 scope_type:
@@ -185,8 +191,8 @@ var_type
 //COMMANDS
 
 simulation_command_list:
-							{ [] }
-	| simulation_command_list simulation_command	{ $2 :: $1 }
+							{ () }
+	| simulation_command_list simulation_command	{ Scope.changes $2 }
 	;
 
 simulation_command:

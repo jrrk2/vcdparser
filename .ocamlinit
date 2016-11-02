@@ -18,8 +18,12 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Vcd
+open Vcdtrim
+open Vcd_types
 open Scope
-open Vcd_parser
+open Vcd_trim
 
-let (arr,chngs) = parse_vcd_ast "../xori.dump";;
+let chan = open_in "junk.vcd";;
+Scope.fd := open_out ("scopes.dump");
+let chngcnt,arr = parse_vcd_ast chan;;
+close_in chan;;

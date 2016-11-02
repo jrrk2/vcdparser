@@ -20,22 +20,20 @@
 
 MENHIR=/usr/lib/ocaml/menhirLib
 MFLAGS=#--trace
+YACC=ocamlyacc
 
 .PHONY: everything
 
-everything: vcdparser.top vcdparser
+everything: vcdtrim.top vcdtrim
 
-vcdparser.top: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml plot.ml vcd.ml
-	ocamlfind ocamlmktop -package gnuplot,menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml plot.ml vcd.ml
+vcdtrim.top: vcd_types.mli vcd_trim.mli scope.ml vcd_trim.ml vcd_trim_lexer.ml vcdtrim.ml
+	ocamlfind ocamlmktop -package menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) vcd_types.mli scope.ml vcd_trim.mli vcd_trim.ml vcd_trim_lexer.ml vcdtrim.ml
 
-vcdparser: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml plot.ml vcd.ml
-	ocamlfind ocamlopt -package gnuplot,menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml plot.ml vcd.ml
+vcdtrim: vcd_types.mli vcd_trim.mli scope.ml vcd_trim.ml vcd_trim_lexer.ml vcdtrim.ml
+	ocamlfind ocamlopt -package menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) vcd_types.mli scope.ml vcd_trim.mli vcd_trim.ml vcd_trim_lexer.ml vcdtrim.ml
 
-vcd_lexer.ml: vcd_lexer.mll
-	ocamllex vcd_lexer.mll
+vcd_trim_lexer.ml: vcd_trim_lexer.mll
+	ocamllex vcd_trim_lexer.mll
 
-vcd_parser.mli vcd_parser.ml: vcd_parser.mly
-	ocamlyacc vcd_parser.mly 
-
-ord.ml: ord.sh vcd_parser.mli
-	sh ord.sh
+vcd_trim.mli vcd_trim.ml: vcd_trim.mly
+	$(YACC) vcd_trim.mly 

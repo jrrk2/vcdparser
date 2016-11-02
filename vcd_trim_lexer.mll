@@ -20,7 +20,7 @@
 
 {
   open Lexing
-  open Vcd_parser
+  open Vcd_trim
 
   let keyword =
     let h = Hashtbl.create 17 in
@@ -63,7 +63,7 @@
     WIRE, "wire";
     WOR, "wor";
       ];
-    fun s -> let s = String.lowercase_ascii s in Hashtbl.find h s
+    fun s -> let s = String.lowercase s in Hashtbl.find h s
 
 }
 
