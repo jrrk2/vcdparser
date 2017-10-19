@@ -19,6 +19,7 @@
 (**************************************************************************)
 
 open Vcd_types
+open Scope
 
 (*
  let _ = Gc.set { (Gc.get()) with Gc.major_heap_increment = 1048576;  Gc.max_overhead = 1048576; Gc.allocation_policy = 1; }
@@ -94,6 +95,7 @@ let parse_vcd_ast f =
   let chan = open_in f in
   let scopes,chnglst = parse_vcd_ast_from_chan chan in
   let crntlst, arr = readscopes vars scopes in
+(*
   List.iter (function
     | Tim n -> sim_time crntlst n
     | Change (enc,lev) -> let (_,_,hd) = List.hd !crntlst in scalar_change vars hd enc lev
@@ -106,7 +108,35 @@ let parse_vcd_ast f =
     chnglst;
   let chngs = Array.of_list (List.tl (List.rev (simx !crntlst))) in
   let (remnantlst,plotlst) = xanal arr chngs f in
-  Plot.plot plotlst;
   (remnantlst,plotlst)
+  *)
+  let fd = open_out "forcing.v" in
+  Printf.fprintf fd "`timescale 1ns/1ps;\n";
+  Printf.fprintf fd "module forcing;\n";
+  Printf.fprintf fd "\ninteger fd;\n\n";
+  let old = ref "" and clst = ref [] in Array.iter (function
+    | (Vcd_types.REG,lst,rng) ->
+      let concat = String.concat "" (List.rev (List.map (function Pstr s -> "."^s | Pidx n -> "") lst)) in
+      if (List.hd lst <> Pstr "clk") && (concat <> !old) && (List.length lst <= 5) then
+        clst := String.sub concat 1 (String.length concat - 1) :: !clst;
+      old := concat;
+    | _ -> ()) arr;
+  let clst = List.sort compare !clst in
+  Printf.fprintf fd "initial\nbegin\n";
+  Printf.fprintf fd "@(posedge tb.clk)\n";
+  Printf.fprintf fd "fd = $fopen(\"stillx.v\",\"w\");\n";
+  Printf.fprintf fd "#1\n";
+  List.iter (fun concat -> Printf.fprintf fd "force %s = $random;\n" concat) clst;
+  Printf.fprintf fd "@(negedge tb.clk)\n";
+  Printf.fprintf fd "#1\n";
+  List.iter (fun concat -> Printf.fprintf fd "release %s;\n" concat) clst;
+  Printf.fprintf fd "@(posedge tb.clk)\n";
+  Printf.fprintf fd "#1\n";
+  Printf.fprintf fd "$fdisplay(fd, \"module stillx;\\n\\ninitial\\nbegin\\n\");\n";
+  List.iter (fun concat -> Printf.fprintf fd "if (1'bx === ^%s) $fdisplay(fd, \"force %s = $random;\");\n" concat concat) clst;
+  Printf.fprintf fd "$fdisplay(fd, \"end\\nendmodule // stillx;\\n\");\n";
+  Printf.fprintf fd "$fclose(fd);\nend\n";
+  Printf.fprintf fd "endmodule // forcing;\n";
+  close_out fd
 
-let _ = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1) else ([],[])
+let _ = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1) else ()

@@ -23,13 +23,13 @@ MFLAGS=#--trace
 
 .PHONY: everything
 
-everything: vcdparser.top vcdparser
+everything: vcdregcnt.top vcdregcnt
 
-vcdparser.top: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml plot.ml vcd.ml
-	ocamlfind ocamlmktop -package gnuplot,menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml plot.ml vcd.ml
+vcdregcnt.top: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
+	ocamlfind ocamlmktop -package menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
 
-vcdparser: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml plot.ml vcd.ml
-	ocamlfind ocamlopt -package gnuplot,menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml plot.ml vcd.ml
+vcdregcnt: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
+	ocamlfind ocamlopt -package menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
 
 vcd_lexer.ml: vcd_lexer.mll
 	ocamllex vcd_lexer.mll
