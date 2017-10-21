@@ -63,7 +63,7 @@
     WIRE, "wire";
     WOR, "wor";
       ];
-    fun s -> let s = String.lowercase_ascii s in Hashtbl.find h s
+    fun s -> let s = String.lowercase s in Hashtbl.find h s
 
 }
 
@@ -75,6 +75,7 @@ let space = [' ' '\t' '\r']+
 let newline = ['\n']
 let hash = '#' dec_num
 let range = '[' ['-']* dec_num ':' ['-']* dec_num ']'
+let range1 = '[' ['-']* dec_num ']'
 
 rule token = parse
   | space
@@ -91,6 +92,8 @@ rule token = parse
       { Scanf.sscanf s "#%d" (fun t -> SIM_TIME(s,t)) }
   | range as s
       { Scanf.sscanf s "[%d:%d]" (fun hi lo -> RANGE(hi,lo)) }
+  | range1 as s
+      { Scanf.sscanf s "[%d]" (fun idx -> RANGE(idx,idx)) }
   | ident as s
       { try keyword s with Not_found -> IDENTIFIER s }
   | eof

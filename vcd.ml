@@ -46,13 +46,13 @@ let errlst = ref []
 let readscopes vars arg =
       let (varlen,varlst) = (ref 0, ref []) in
       Scope.scopes vars varlen varlst false [] (VCD_SCOPE(FILE, "", arg));
-      let crnt = Bytes.init !varlen (fun _ -> 'x') in
+      let crnt = String.make !varlen 'x' in
       assert(List.length !varlst == !varlen);
       (ref [(0,!varlen,crnt)], Array.of_list (List.rev !varlst))
 	  
 let scalar_change vars crnt enc lev = if Hashtbl.mem vars enc then
       (let idx = Hashtbl.find vars enc in
-      if idx >= 0 then Bytes.set crnt idx lev)
+      if idx >= 0 then String.set crnt idx lev)
       else (errlst := Change(enc,lev) :: !errlst; failwith ("encoding "^enc^" not found"))
 
 let vector_change vars crnt lev enc = if Hashtbl.mem vars enc then
@@ -60,7 +60,7 @@ let vector_change vars crnt lev enc = if Hashtbl.mem vars enc then
       let cnt = String.length lev - 1 in
       if idx >= 0 then for i = 1 to cnt do
         let off = idx+cnt-i in
-        Bytes.set crnt off lev.[i];
+        String.set crnt off lev.[i];
       done)
       else (errlst := Vector(lev,enc) :: !errlst; failwith ("encoding "^enc^" not found"))
 
@@ -73,7 +73,7 @@ let simx crntlst =
 
 let sim_time crntlst n =
         let (_,_,hd) = List.hd !crntlst in
-	crntlst := (n,0,Bytes.copy hd) :: simx !crntlst
+	crntlst := (n,0,String.copy hd) :: simx !crntlst
 
 let xanal arr chngs f =
   let (tim,xcnt,_) = chngs.(0) in
@@ -106,7 +106,6 @@ let parse_vcd_ast f =
     chnglst;
   let chngs = Array.of_list (List.tl (List.rev (simx !crntlst))) in
   let (remnantlst,plotlst) = xanal arr chngs f in
-  Plot.plot plotlst;
   (remnantlst,plotlst)
 
 let _ = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1) else ([],[])
