@@ -78,8 +78,6 @@ let sim_time crntlst n =
 let xanal arr chngs f =
   let (tim,xcnt,_) = chngs.(0) in
   let minx = ref (0,xcnt) in
-  let plotlst = ref [] in
-  Array.iteri (fun ix (tim,xcnt,_) -> plotlst := (float_of_int tim,float_of_int xcnt) :: !plotlst; if xcnt < snd (!minx) then minx := (ix,xcnt)) chngs;
   let (tim',xcnt',pattern) = chngs.(fst !minx) in
   output_string stderr ("X minimum of "^string_of_int xcnt'^" (out of "^ string_of_int xcnt^") occured at time "^string_of_int tim'^"\n");
   let remnant = open_out (f^".remnant.log") in
@@ -87,7 +85,7 @@ let xanal arr chngs f =
   String.iteri (fun ix ch ->
     if ch = 'x' then let (kind, pth, range) = arr.(ix) in
     Scope.path remnant pth; output_char remnant '\n'; remnantlst := arr.(ix) :: !remnantlst) pattern;
-  (!remnantlst, !plotlst)
+  !remnantlst
 
 let parse_vcd_ast f =
   let vars = Hashtbl.create 131071 in
@@ -105,7 +103,7 @@ let parse_vcd_ast f =
     | Dumpoff -> ())
     chnglst;
   let chngs = Array.of_list (List.tl (List.rev (simx !crntlst))) in
-  let (remnantlst,plotlst) = xanal arr chngs f in
-  (remnantlst,plotlst)
+  let remnantlst = xanal arr chngs f in
+  remnantlst
 
-let _ = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1) else ([],[])
+let _ = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1) else ([])
