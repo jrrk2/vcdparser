@@ -22,6 +22,8 @@
   open Lexing
   open Vcd_parser
 
+  let verbose = try let _ = Sys.getenv "VCD_LEX_VERBOSE" in true with _ -> false
+  
   let keyword =
     let h = Hashtbl.create 17 in
     List.iter 
@@ -65,6 +67,16 @@
       ];
     fun s -> let s = String.lowercase s in Hashtbl.find h s
 
+let log = function
+    | IDENTIFIER id -> "\""^id^"\""
+    | DEC_NUM n -> n
+    | SIM_TIME(s,t) -> "sim_time "^s
+    | oth -> Ord.getstr oth
+    
+let tok s =
+    if verbose then print_endline (log s);
+    s
+
 }
 
 let ident = ['!'-'~']+
@@ -81,21 +93,21 @@ rule token = parse
   | space
       { token lexbuf }
   | newline
-      { incr Scope.lincnt; NEWLINE }
+      { incr Scope.lincnt; tok NEWLINE }
   | bin_num as s
-      { BIN_NUM s }
+      { tok (BIN_NUM s) }
   | dec_num as s
-      { DEC_NUM s }
+      { tok (DEC_NUM s) }
   | time as s
-      { TIME_UNIT s }
+      { tok (TIME_UNIT s) }
   | hash as s
-      { Scanf.sscanf s "#%d" (fun t -> SIM_TIME(s,t)) }
+      { Scanf.sscanf s "#%d" (fun t -> tok (SIM_TIME(s,t))) }
   | range as s
-      { Scanf.sscanf s "[%d:%d]" (fun hi lo -> RANGE(hi,lo)) }
+      { Scanf.sscanf s "[%d:%d]" (fun hi lo -> tok (RANGE(hi,lo))) }
   | range1 as s
-      { Scanf.sscanf s "[%d]" (fun idx -> RANGE(idx,idx)) }
+      { Scanf.sscanf s "[%d]" (fun idx -> tok (RANGE(idx,idx))) }
   | ident as s
-      { try keyword s with Not_found -> IDENTIFIER s }
+      { tok (try keyword s with Not_found -> IDENTIFIER s) }
   | eof
       { EOF }
   | _ as c

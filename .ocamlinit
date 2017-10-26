@@ -21,5 +21,6 @@
 open Vcd
 open Scope
 open Vcd_parser
+open Vcd_types
 
-let (arr,chngs) = parse_vcd_ast "../xori.dump";;
+let chngs, scopes = parse_vcd_ast "../hls/mersenne_hls/mersenne_hls.sim/sim_1/behav/dump.vcd" "../hls/alwaysx.v";;

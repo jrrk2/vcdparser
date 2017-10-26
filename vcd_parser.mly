@@ -85,7 +85,7 @@ vcd_file:
 
 // HEADER
 vcd_header:
-    decl_command_list ENDDEFNS END NEWLINE NEWLINE
+    decl_command_list ENDDEFNS END NEWLINE
         { List.rev $1 }
     ;
 
@@ -111,7 +111,15 @@ vcd_decl_date
     ;
 
 vcd_decl_version 
-    : VERSION NEWLINE IDENTIFIER IDENTIFIER IDENTIFIER IDENTIFIER NEWLINE END NEWLINE { VERSION }
+    : VERSION NEWLINE version_list NEWLINE END NEWLINE { VERSION }
+    ;
+
+version_list:
+        { [] }
+    | identifier_list IDENTIFIER
+        { STRING $2 :: $1 }
+    | identifier_list DEC_NUM
+        { STRING $2 :: $1 }
     ;
 
 vcd_decl_comment 
@@ -206,4 +214,5 @@ simulation_command:
 	| 	DUMPOFF NEWLINE 	   { Dumpoff }
 	| 	DUMPVARS NEWLINE	   { Dumpvars }
 	| 	END NEWLINE		   { Nochange }
+	| 	NEWLINE		           { Nochange }
 	;

@@ -19,6 +19,7 @@
 (**************************************************************************)
 
 open Vcd_types
+open Scope
 
 (*
  let _ = Gc.set { (Gc.get()) with Gc.major_heap_increment = 1048576;  Gc.max_overhead = 1048576; Gc.allocation_policy = 1; }
@@ -75,23 +76,17 @@ let sim_time crntlst n =
         let (_,_,hd) = List.hd !crntlst in
 	crntlst := (n,0,String.copy hd) :: simx !crntlst
 
-let xanal arr chngs f =
-  let (tim,xcnt,_) = chngs.(0) in
-  let minx = ref (0,xcnt) in
-  let (tim',xcnt',pattern) = chngs.(fst !minx) in
-  output_string stderr ("X minimum of "^string_of_int xcnt'^" (out of "^ string_of_int xcnt^") occured at time "^string_of_int tim'^"\n");
-  let remnant = open_out (f^".remnant.log") in
-  let remnantlst = ref [] in
-  String.iteri (fun ix ch ->
-    if ch = 'x' then let (kind, pth, range) = arr.(ix) in
-    Scope.path remnant pth; output_char remnant '\n'; remnantlst := arr.(ix) :: !remnantlst) pattern;
-  !remnantlst
+let rec spath = function
+  | [] -> ""
+  | Pstr hd :: [] -> hd
+  | Pstr hd :: tl -> spath tl ^ "." ^ hd
+  | Pidx hd :: tl -> spath tl
 
-let parse_vcd_ast f =
+let parse_vcd_ast f outf =
   let vars = Hashtbl.create 131071 in
   let chan = open_in f in
   let scopes,chnglst = parse_vcd_ast_from_chan chan in
-  let crntlst, arr = readscopes vars scopes in
+  let crntlst, scopes = readscopes vars scopes in
   List.iter (function
     | Tim n -> sim_time crntlst n
     | Change (enc,lev) -> let (_,_,hd) = List.hd !crntlst in scalar_change vars hd enc lev
@@ -103,7 +98,29 @@ let parse_vcd_ast f =
     | Dumpoff -> ())
     chnglst;
   let chngs = Array.of_list (List.tl (List.rev (simx !crntlst))) in
-  let remnantlst = xanal arr chngs f in
-  remnantlst
+  let prevpath = ref "" in
+  let (_, _, crnt) = chngs.(Array.length chngs - 1) in
+  let fd = open_out outf in
+  Printf.fprintf fd "module alwaysx(input clk, input rst);\n\ninteger i, fd, notif;\n\ninitial fd = $fopen(\"alwaysx.log\");\n\nalways @(negedge clk)\n\tif (~rst) begin\n";
+  Array.iteri (fun ix (kind,lst,rng) ->
+    let pth = spath lst in
+    if (pth <> !prevpath) && crnt.[ix]='x' then
+      begin
+	let log = "$fdisplay(fd, " in
+(*
+	let log = "$display(" in
+*)
+	match rng with
+       | SCALAR ->
+	  Printf.fprintf fd "\tif (1'bx === ^%s)\n\t\tbegin\n\t\t%s\"%%t: %s is X\", $time);\n\t\t%s = 'b0;\n\t\tend\n" pth log pth pth
+       | RANGE(hi,lo) ->
+	  Printf.fprintf fd "\tnotif = 1;\n\tfor (i = %d; i <= %d; i=i+1) if (1'bx === ^%s[i])\n\t\tbegin\n\t\tif (notif) %s\"%%t: %s is X\", $time);\n\t\t%s[i] = 'b0;\n\t\tnotif = 0;\n\t\tend\n" lo hi pth log pth pth
+       end;
+    prevpath := pth;
+    ) scopes;
+  Printf.fprintf fd "\t$fflush(fd);\n\tend\n\nendmodule // alwaysx;\n";
+  close_out fd;
+  chngs, scopes
 
-let _ = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1) else ([])
+let _ = if Array.length Sys.argv > 2 then
+	  parse_vcd_ast Sys.argv.(1) Sys.argv.(2) else ([||],[||])
