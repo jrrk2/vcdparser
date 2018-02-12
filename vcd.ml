@@ -90,7 +90,7 @@ let xanal arr chngs f =
     Scope.path remnant pth; output_char remnant '\n'; remnantlst := arr.(ix) :: !remnantlst) pattern;
   (!remnantlst, !plotlst)
 
-let parse_vcd_ast f =
+let parse_vcd_ast max f =
   let vars = Hashtbl.create 131071 in
   let chan = open_in f in
   let scopes,chnglst = parse_vcd_ast_from_chan chan in
@@ -117,7 +117,7 @@ let parse_vcd_ast f =
   let old = ref "" and clst = ref [] in Array.iter (function
     | (Vcd_types.REG,lst,rng) ->
       let concat = String.concat "" (List.rev (List.map (function Pstr s -> "."^s | Pidx n -> "") lst)) in
-      if (List.hd lst <> Pstr "clk") && (concat <> !old) && (List.length lst <= 6) then
+      if (List.hd lst <> Pstr "clk") && (concat <> !old) && (List.length lst <= max) then
         clst := String.sub concat 1 (String.length concat - 1) :: !clst;
       old := concat;
     | _ -> ()) arr;
@@ -126,4 +126,7 @@ let parse_vcd_ast f =
   Printf.fprintf fd "endmodule // forcing;\n";
   close_out fd
 
-let _ = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1) else ()
+let _ = match Array.length Sys.argv with
+    | 2 -> parse_vcd_ast 6 Sys.argv.(1)
+    | 3 -> parse_vcd_ast (int_of_string Sys.argv.(1)) Sys.argv.(2)
+    | _ -> failwith ("Usage "^Sys.argv.(0)^" vcdfile or depth vcdfile")
