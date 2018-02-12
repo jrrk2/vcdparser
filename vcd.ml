@@ -117,25 +117,12 @@ let parse_vcd_ast f =
   let old = ref "" and clst = ref [] in Array.iter (function
     | (Vcd_types.REG,lst,rng) ->
       let concat = String.concat "" (List.rev (List.map (function Pstr s -> "."^s | Pidx n -> "") lst)) in
-      if (List.hd lst <> Pstr "clk") && (concat <> !old) && (List.length lst <= 5) then
+      if (List.hd lst <> Pstr "clk") && (concat <> !old) && (List.length lst <= 6) then
         clst := String.sub concat 1 (String.length concat - 1) :: !clst;
       old := concat;
     | _ -> ()) arr;
   let clst = List.sort compare !clst in
-  Printf.fprintf fd "initial\nbegin\n";
-  Printf.fprintf fd "@(posedge tb.clk)\n";
-  Printf.fprintf fd "fd = $fopen(\"stillx.v\",\"w\");\n";
-  Printf.fprintf fd "#1\n";
-  List.iter (fun concat -> Printf.fprintf fd "force %s = $random;\n" concat) clst;
-  Printf.fprintf fd "@(negedge tb.clk)\n";
-  Printf.fprintf fd "#1\n";
-  List.iter (fun concat -> Printf.fprintf fd "release %s;\n" concat) clst;
-  Printf.fprintf fd "@(posedge tb.clk)\n";
-  Printf.fprintf fd "#1\n";
-  Printf.fprintf fd "$fdisplay(fd, \"module stillx;\\n\\ninitial\\nbegin\\n\");\n";
-  List.iter (fun concat -> Printf.fprintf fd "if (1'bx === ^%s) $fdisplay(fd, \"force %s = $random;\");\n" concat concat) clst;
-  Printf.fprintf fd "$fdisplay(fd, \"end\\nendmodule // stillx;\\n\");\n";
-  Printf.fprintf fd "$fclose(fd);\nend\n";
+  List.iter (fun concat -> Printf.fprintf fd "always @(%s)\n\t#1 if (1'bx === ^%s)\n\t\tbegin\n\t\tforce %s = 'b0;\n\t\t#1 release %s;\n\t\t$display(\"assign %s = 'b0;\");\n\t\tend\n\n" concat concat concat concat concat) clst;
   Printf.fprintf fd "endmodule // forcing;\n";
   close_out fd
 
