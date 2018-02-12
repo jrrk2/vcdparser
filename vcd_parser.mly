@@ -67,6 +67,7 @@
 %token    VERSION;
 %token <string>   BIN_NUM;
 %token <string>   DEC_NUM;
+%token <string>   REAL_NUM;
 %token <string>   TIME_UNIT;
 %token <string>   IDENTIFIER;
 %token    ML_COMMENT;
@@ -152,6 +153,7 @@ vcd_decl_var
 encoding:
       DEC_NUM      { $1  }
     | BIN_NUM      { $1  }
+    | REAL_NUM     { $1  }
     | TIME_UNIT    { $1  }
     | SIM_TIME     { fst $1  }
     | SCALAR_VALUE { String.make 1 $1  }
@@ -196,6 +198,7 @@ simulation_command:
 	|	BIN_NUM NEWLINE 	   { Change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
 	|	TIME_UNIT NEWLINE 	   { Change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
 	|	BIN_NUM IDENTIFIER NEWLINE { Vector  ($1,$2) }
+	|	REAL_NUM IDENTIFIER NEWLINE { Vector  ($1,$2) }
 	|	BIN_NUM DEC_NUM NEWLINE    { Vector  ($1,$2) }
 	|	BIN_NUM BIN_NUM NEWLINE    { Vector  ($1,$2) }
 	|	BIN_NUM TIME_UNIT NEWLINE  { Vector  ($1,$2) }
