@@ -20,10 +20,6 @@
 
 open Vcd_types
 
-type pth =
-  | Pstr of string
-  | Pidx of int
-
 let typnam = function
   | EVENT  -> "EVENT"
   | INTEGER  -> "INTEGER"

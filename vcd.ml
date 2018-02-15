@@ -26,7 +26,7 @@ open Vcd_types
 
 let parse_vcd_ast_from_chan c =
   let lb = Lexing.from_channel c in
-  let vcd = try
+  let _ = try
       Scope.lincnt := 1;
       Vcd_parser.vcd_file Vcd_lexer.token lb
   with
@@ -38,75 +38,39 @@ let parse_vcd_ast_from_chan c =
       failwith (Printf.sprintf "Parser error at line %d" !Scope.lincnt)
 *)
   in
-  Pervasives.close_in c;
-  vcd
-
-let errlst = ref []
-
-let readscopes vars arg =
-      let (varlen,varlst) = (ref 0, ref []) in
-      Scope.scopes vars varlen varlst false [] (VCD_SCOPE(FILE, "", arg));
-      let crnt = Bytes.init !varlen (fun _ -> 'x') in
-      assert(List.length !varlst == !varlen);
-      (ref [(0,!varlen,crnt)], Array.of_list (List.rev !varlst))
-	  
-let scalar_change vars crnt enc lev = if Hashtbl.mem vars enc then
-      (let idx = Hashtbl.find vars enc in
-      if idx >= 0 then Bytes.set crnt idx lev)
-      else (errlst := Change(enc,lev) :: !errlst; failwith ("encoding "^enc^" not found"))
-
-let vector_change vars crnt lev enc = if Hashtbl.mem vars enc then
-      (let idx = Hashtbl.find vars enc in
-      let cnt = String.length lev - 1 in
-      if idx >= 0 then for i = 1 to cnt do
-        let off = idx+cnt-i in
-        Bytes.set crnt off lev.[i];
-      done)
-      else (errlst := Vector(lev,enc) :: !errlst; failwith ("encoding "^enc^" not found"))
-
-let simx crntlst =
-        let (tim,xcnt,hd) = List.hd crntlst in
-        let tl = List.tl crntlst in
-        let cnt = ref 0 in
-        for i = 0 to String.length hd - 1 do if hd.[i] = 'x' then incr cnt done;
-	(tim,!cnt,hd) :: tl
-
-let sim_time crntlst n =
-        let (_,_,hd) = List.hd !crntlst in
-	crntlst := (n,0,Bytes.copy hd) :: simx !crntlst
-
-let xanal arr chngs f =
-  let (tim,xcnt,_) = chngs.(0) in
-  let minx = ref (0,xcnt) in
-  let plotlst = ref [] in
-  Array.iteri (fun ix (tim,xcnt,_) -> plotlst := (float_of_int tim,float_of_int xcnt) :: !plotlst; if xcnt < snd (!minx) then minx := (ix,xcnt)) chngs;
-  let (tim',xcnt',pattern) = chngs.(fst !minx) in
-  output_string stderr ("X minimum of "^string_of_int xcnt'^" (out of "^ string_of_int xcnt^") occured at time "^string_of_int tim'^"\n");
-  let remnant = open_out (f^".remnant.log") in
-  let remnantlst = ref [] in
-  String.iteri (fun ix ch ->
-    if ch = 'x' then let (kind, pth, range) = arr.(ix) in
-    Scope.path remnant pth; output_char remnant '\n'; remnantlst := arr.(ix) :: !remnantlst) pattern;
-  (!remnantlst, !plotlst)
+  Pervasives.close_in c
 
 let parse_vcd_ast f =
-  let vars = Hashtbl.create 131071 in
   let chan = open_in f in
-  let scopes,chnglst = parse_vcd_ast_from_chan chan in
-  let crntlst, arr = readscopes vars scopes in
-  List.iter (function
-    | Tim n -> sim_time crntlst n
-    | Change (enc,lev) -> let (_,_,hd) = List.hd !crntlst in scalar_change vars hd enc lev
-    | Vector (lev,enc) -> let (_,_,hd) = List.hd !crntlst in vector_change vars hd lev enc
-    | Nochange -> ()
-    | Dumpvars -> ()
-    | Dumpall -> ()
-    | Dumpon -> ()
-    | Dumpoff -> ())
-    chnglst;
-  let chngs = Array.of_list (List.tl (List.rev (simx !crntlst))) in
-  let (remnantlst,plotlst) = xanal arr chngs f in
-  Plot.plot plotlst;
-  (remnantlst,plotlst)
+  crntf := open_out "vec.out";
+  hierf := open_out "hier.out";
+  parse_vcd_ast_from_chan chan;
+  close_out !crntf;
+  let encf = open_out "enc.out" in
+  let arr = Array.of_list (List.rev !varlst) in
+  Hashtbl.iter (fun k ix ->
+                    if ix >= 0 then let (_,p,_) = arr.(ix) in path encf p else output_string encf "*** ";
+                    output_string encf (" - "^k^": "^string_of_int ix^"\n")) vars;
+  close_out encf;
+  let stillx = open_out "stillx.log" in
+  output_string stillx "module stillx;\n";
+  output_string stillx "\ninitial\n\tbegin\n";
+  for i = 0 to 1 do
+  output_string stillx ("\t#"^string_of_int(990*i+10)^"\n");
+  String.iteri (fun ix ch -> if ch == 'x' then match arr.(ix) with
+    | (REG,p,rng) ->
+      output_string stillx (if i > 0 then "\trelease " else "\tforce ");
+      path stillx p;
+      output_string stillx (if i > 0 then ";\n" else " = 'b0;\n")
+    | (_,p,rng) ->
+(*
+      output_string stillx "\t// ";
+      path stillx p;
+      output_string stillx "\n"
+*)
+      ()) !crnthd;
+  done;
+  output_string stillx "end\nendmodule\n";
+  close_out stillx
 
-let _ = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1) else ([],[])
+let _ = if Array.length Sys.argv > 1 then parse_vcd_ast Sys.argv.(1)

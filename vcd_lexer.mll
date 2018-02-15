@@ -20,80 +20,102 @@
 
 {
   open Lexing
+  open Vcd_types
   open Vcd_parser
 
-  let keyword =
-    let h = Hashtbl.create 17 in
-    List.iter 
-      (fun (k,s) -> Hashtbl.add h s k)
+  let verbose = ref false
+  let h = Hashtbl.create 17
+  let r = Hashtbl.create 17
+  let _ = List.iter 
+      (fun (k,s) -> Hashtbl.add h s k; Hashtbl.add r k s)
       [
+    BEGIN, "begin";
     DATE, "$date";
-    VERSION, "$version";
-    ML_COMMENT, "$comment";
-    ENDDEFNS , "$enddefinitions";
-    END, "$end";
-    TIMESCALE, "$timescale";
-    SCOPE, "$scope";
-    VAR, "$var";
-    UPSCOPE, "$upscope";
     DUMPALL, "$dumpall";
     DUMPON, "$dumpon";
     DUMPOFF, "$dumpoff";
     DUMPVARS, "$dumpvars";
-    BEGIN, "begin";
+    ENDDEFNS , "$enddefinitions";
+    END, "$end";
+    EVENT, "event"; 
     FORK, "fork";
     FUNCTION, "function";
-    MODULE, "module"   ;
-    TASK, "task";
-    EVENT, "event"; 
     INTEGER, "integer";
+    ML_COMMENT, "$comment";
+    MODULE, "module"   ;
+    NEWLINE, "newline";
     PARAMETER, "parameter";
     REAL, "real";
     REG, "reg";
+    SCOPE, "$scope";
     SUPPLY0, "supply0";
     SUPPLY1, "supply1";
+    TASK, "task";
     TIME, "time";
+    TIMESCALE, "$timescale";
     TRI, "tri";
     TRIAND, "triand";
     TRIOR, "trio";
     TRIREG, "trireg";
     TRI0, "tri0";
     TRI1, "tri1";
+    UPSCOPE, "$upscope";
+    VAR, "$var";
+    VERSION, "$version";
     WAND, "wand";
     WIRE, "wire";
     WOR, "wor";
-      ];
-    fun s -> let s = String.lowercase_ascii s in Hashtbl.find h s
+      ]
+  let keyword = fun s -> let s = String.lowercase s in Hashtbl.find h s
 
+let tok k =
+if !verbose then ((match k with
+| BIN_NUM b -> print_endline ("bin_num "^b)
+| DEC_NUM n -> print_endline ("dec_num "^n)
+| REAL_NUM r -> print_endline ("real_num "^r)
+| SIM_TIME(x,y) -> print_endline ("sim_time "^x)
+| TIME_UNIT s -> print_endline ("time_unit "^s)
+| RANGE _ -> print_endline "range"
+| IDENTIFIER s -> print_endline ("identifier "^s)
+| oth -> print_endline (Hashtbl.find r oth));
+  flush stdout);
+  if !end_input then EOF else k
 }
 
 let ident = ['!'-'~']+
 let bin_num = ['b' 'B'] ['x' 'X' 'z' 'Z' '0' '1']+
 let dec_num = ['0'-'9']+
+let minus = '-'
+let real_num = ['r' 'R'] minus* ['0'-'9']+ '.' ['0'-'9']+
 let time = dec_num ("s" | "ms" | "us" | "ns" | "ps" | "fs")
 let space = [' ' '\t' '\r']+
-let newline = ['\n']
+let newline = '\n'
 let hash = '#' dec_num
 let range = '[' ['-']* dec_num ':' ['-']* dec_num ']'
+let range1 = '[' ['-']* dec_num ']'
 
 rule token = parse
   | space
       { token lexbuf }
   | newline
-      { incr Scope.lincnt; NEWLINE }
+      { incr Scope.lincnt; tok NEWLINE }
   | bin_num as s
-      { BIN_NUM s }
+      { tok (BIN_NUM s) }
   | dec_num as s
-      { DEC_NUM s }
+      { tok (DEC_NUM s) }
+  | real_num as s
+      { tok (REAL_NUM s ) }
   | time as s
-      { TIME_UNIT s }
+      { tok (TIME_UNIT s) }
   | hash as s
-      { Scanf.sscanf s "#%d" (fun t -> SIM_TIME(s,t)) }
+      { Scanf.sscanf s "#%d" (fun t -> tok (SIM_TIME(s,t))) }
   | range as s
-      { Scanf.sscanf s "[%d:%d]" (fun hi lo -> RANGE(hi,lo)) }
+      { Scanf.sscanf s "[%d:%d]" (fun hi lo -> tok (RANGE(hi,lo))) }
+  | range1 as s
+      { Scanf.sscanf s "[%d]" (fun r1 -> tok (RANGE(r1,r1))) }
   | ident as s
-      { try keyword s with Not_found -> IDENTIFIER s }
+      { try keyword s with Not_found -> tok (IDENTIFIER s) }
   | eof
-      { EOF }
+      { tok EOF }
   | _ as c
       { failwith ("Vcd_lexer: invalid character " ^ String.make 1 c) }

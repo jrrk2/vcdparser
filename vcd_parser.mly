@@ -23,6 +23,35 @@
 %{
   open Parsing
   open Vcd_types
+  let verbose = ref false
+  let (varlen,stem) = (ref 0, ref [])
+
+  let scalar_change enc lev =
+      if Hashtbl.mem vars enc then
+      let idx = Hashtbl.find vars enc in
+      Bytes.set !crnthd idx lev;
+      else (errlst := Change(enc,lev) :: !errlst; failwith ("encoding "^enc^" not found"))
+
+  let vector_change lev enc =
+      if Hashtbl.mem vars enc then
+        begin
+        let idx = Hashtbl.find vars enc in
+        let cnt = String.length lev - 1 in
+        Bytes.set !crnthd idx 'b';
+        for i = 1 to cnt do
+          if lev.[i] = 'x' then Bytes.set !crnthd idx 'x';
+        done
+        end
+      else (errlst := Vector(lev,enc) :: !errlst; failwith ("encoding "^enc^" not found"))
+
+  let sim_time n =
+        let cnt = ref 0 in
+        String.iter (fun c -> if c = 'x' then incr cnt) !crnthd;
+(*
+        Printf.fprintf !crntf "%d %d %s\n" n !cnt !crnthd;
+ *)
+        Printf.fprintf !crntf "%d %d\n" n !cnt;
+        if (n > 100000) then end_input := true
 %}
 
 %token    NEWLINE
@@ -67,12 +96,13 @@
 %token    VERSION;
 %token <string>   BIN_NUM;
 %token <string>   DEC_NUM;
+%token <string>   REAL_NUM;
 %token <string>   TIME_UNIT;
 %token <string>   IDENTIFIER;
 %token    ML_COMMENT;
 %token    EOF
 
-%type <Vcd_types.scoping list*Vcd_types.chng list> vcd_file
+%type <unit> vcd_file
 %type <Vcd_types.kind> var_type
 %start vcd_file
 %%
@@ -81,12 +111,12 @@
 /* Parser rules */
 
 vcd_file:
-    vcd_header simulation_command_list EOF { ($1,List.rev $2) }
+    vcd_header simulation_command_list EOF { }
 
 // HEADER
 vcd_header:
     decl_command_list ENDDEFNS END NEWLINE NEWLINE
-        { List.rev $1 }
+        { ignore $1; crnthd := Bytes.init !varlen (fun _ -> 'x') }
     ;
 
 decl_command_list:
@@ -98,24 +128,24 @@ decl_command_list:
     ;
 
 decl_command:
-      vcd_decl_date { $1 }
-    | vcd_decl_version { $1 }
+      vcd_decl_date      { $1 }
+    | vcd_decl_version   { $1 }
     | vcd_decl_timescale { $1 }
-    | vcd_decl_comment { $1 }
-    | vcd_scope  { $1 }
-    | vcd_decl_var { $1 }
+    | vcd_decl_comment   { $1 }
+    | vcd_scope1 vcd_scope2          { $1 }
+    | vcd_decl_var       { $1 }
 ;
 
 vcd_decl_date 
-    : DATE NEWLINE IDENTIFIER IDENTIFIER DEC_NUM IDENTIFIER DEC_NUM NEWLINE END NEWLINE { DATE }
+    : DATE NEWLINE IDENTIFIER IDENTIFIER DEC_NUM IDENTIFIER DEC_NUM NEWLINE END NEWLINE { ignore DATE }
     ;
 
 vcd_decl_version 
-    : VERSION NEWLINE IDENTIFIER IDENTIFIER IDENTIFIER IDENTIFIER NEWLINE END NEWLINE { VERSION }
+    : VERSION NEWLINE IDENTIFIER IDENTIFIER IDENTIFIER IDENTIFIER NEWLINE END NEWLINE { ignore VERSION }
     ;
 
 vcd_decl_comment 
-    : ML_COMMENT identifier_list END NEWLINE { COMMENT $2 }
+    : ML_COMMENT identifier_list END NEWLINE { ignore $2 }
     ;
 
 identifier_list:
@@ -128,12 +158,23 @@ identifier_list:
 
 vcd_decl_timescale
     : TIMESCALE NEWLINE TIME_UNIT NEWLINE END NEWLINE
-        { TIME_SCALE $3 }
+        { ignore $3 }
     ;
 
-vcd_scope
-    : SCOPE scope_type IDENTIFIER END decl_command_list UPSCOPE END NEWLINE
-        { VCD_SCOPE($2, $3, $5) }
+vcd_scope1
+    : SCOPE scope_type IDENTIFIER
+        {
+        let kind = $2 in
+        let nam' = $3 in
+        stem := Pstr nam' :: !stem;
+        }
+    ;
+
+vcd_scope2
+    : END decl_command_list UPSCOPE END NEWLINE
+        {
+        stem := List.tl !stem
+        }
     ;
 
 scope_type:
@@ -146,12 +187,25 @@ scope_type:
 
 vcd_decl_var
     : VAR var_type DEC_NUM encoding IDENTIFIER range END NEWLINE
-        { NEWVAR($2,int_of_string $3,$4,$5,$6) }
-    ;
-
+        { let typ = $2 in
+          let wid = int_of_string $3 in
+          let enc = $4 in
+          let id = $5 in
+          let rng = $6 in
+          let nam = Pstr id :: !stem in
+          output_string !hierf (typnam typ^": "); path !hierf nam; output_string !hierf "\n";
+          if not (Hashtbl.mem vars enc) then
+               begin
+                 Hashtbl.replace vars enc !varlen;
+                 incr varlen;
+                 varlst := (typ, nam, rng) :: !varlst
+               end
+        }
+               
 encoding:
       DEC_NUM      { $1  }
     | BIN_NUM      { $1  }
+    | REAL_NUM     { $1  }
     | TIME_UNIT    { $1  }
     | SIM_TIME     { fst $1  }
     | SCALAR_VALUE { String.make 1 $1  }
@@ -185,25 +239,26 @@ var_type
 //COMMANDS
 
 simulation_command_list:
-							{ [] }
-	| simulation_command_list simulation_command	{ $2 :: $1 }
+							{ () }
+	| simulation_command_list simulation_command	{ $2 }
 	;
 
 simulation_command:
-		SIM_TIME NEWLINE	   { Tim (snd $1) }
-	|	IDENTIFIER NEWLINE	   { Change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	DEC_NUM NEWLINE 	   { Change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	BIN_NUM NEWLINE 	   { Change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	TIME_UNIT NEWLINE 	   { Change (String.sub $1 1 (String.length $1 - 1), $1.[0]) }
-	|	BIN_NUM IDENTIFIER NEWLINE { Vector  ($1,$2) }
-	|	BIN_NUM DEC_NUM NEWLINE    { Vector  ($1,$2) }
-	|	BIN_NUM BIN_NUM NEWLINE    { Vector  ($1,$2) }
-	|	BIN_NUM TIME_UNIT NEWLINE  { Vector  ($1,$2) }
-	|	BIN_NUM SIM_TIME NEWLINE   { Vector  ($1,fst $2) }
-	|	ML_COMMENT NEWLINE         { Nochange }
-	|	DUMPALL NEWLINE 	   { Dumpall }
-	| 	DUMPON NEWLINE 		   { Dumpon }
-	| 	DUMPOFF NEWLINE 	   { Dumpoff }
-	| 	DUMPVARS NEWLINE	   { Dumpvars }
-	| 	END NEWLINE		   { Nochange }
+		SIM_TIME NEWLINE            { sim_time (snd $1) }
+	|	IDENTIFIER NEWLINE	    { scalar_change (String.sub $1 1 (String.length $1 - 1)) $1.[0] }
+	|	DEC_NUM NEWLINE             { scalar_change (String.sub $1 1 (String.length $1 - 1)) $1.[0] }
+	|	BIN_NUM NEWLINE             { scalar_change (String.sub $1 1 (String.length $1 - 1)) $1.[0] }
+	|	TIME_UNIT NEWLINE           { scalar_change (String.sub $1 1 (String.length $1 - 1)) $1.[0] }
+	|	BIN_NUM IDENTIFIER NEWLINE  { vector_change $1 $2 }
+	|	REAL_NUM IDENTIFIER NEWLINE { vector_change $1 $2 }
+	|	BIN_NUM DEC_NUM NEWLINE     { vector_change $1 $2 }
+	|	BIN_NUM BIN_NUM NEWLINE     { vector_change $1 $2 }
+	|	BIN_NUM TIME_UNIT NEWLINE   { vector_change $1 $2 }
+	|	BIN_NUM SIM_TIME NEWLINE    { vector_change $1 (fst $2) }
+	|	ML_COMMENT NEWLINE          { }
+	|	DUMPALL NEWLINE             { }
+	| 	DUMPON NEWLINE              { }
+	| 	DUMPOFF NEWLINE             { }
+	| 	DUMPVARS NEWLINE            { }
+	| 	END NEWLINE                 { }
 	;

@@ -51,3 +51,17 @@ type chng =
 | Dumpall
 | Dumpon
 | Dumpoff
+
+type pth =
+  | Pstr of string
+  | Pidx of int
+
+val vars : (string, int) Hashtbl.t
+val crnthd : bytes ref
+val crntf : out_channel ref
+val hierf : out_channel ref
+val errlst : chng list ref
+val typnam : kind -> string
+val path : out_channel -> pth list -> unit
+val varlst : (kind * pth list * range) list ref
+val end_input : bool ref
