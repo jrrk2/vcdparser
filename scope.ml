@@ -59,11 +59,11 @@ let rec scopes vars varlen varlst verbose stem = function
        | FORK -> prerr_string "Fork: "; path stderr nam; prerr_newline ()
        | FUNCTION -> prerr_string "Function: "; path stderr nam; prerr_newline ()
        | TASK -> prerr_string "Task: "; path stderr nam; prerr_newline ())
-| NEWVAR(REG as typ,num,enc,id,(RANGE(hi,lo) as rng)) -> let nam = Pstr id :: stem in
+| NEWVAR((REG|WIRE) as typ,num,enc,id,(RANGE(hi,lo) as rng)) -> let nam = Pstr id :: stem in
     if verbose then (prerr_string (typnam typ); prerr_string ": "; path stderr nam; prerr_newline ());
     Hashtbl.add vars enc !varlen;
     for i = 0 to num-1 do incr varlen; varlst := (typ, Pidx (i+lo) :: nam, rng) :: !varlst; done
-| NEWVAR(REG as typ,num,enc,id,SCALAR) -> let nam = Pstr id :: stem in
+| NEWVAR((REG|WIRE) as typ,num,enc,id,SCALAR) -> let nam = Pstr id :: stem in
     if verbose then (prerr_string (typnam typ); prerr_string ": "; path stderr nam; prerr_newline ());
     Hashtbl.add vars enc !varlen;
     incr varlen; varlst := (typ,nam,SCALAR) :: !varlst

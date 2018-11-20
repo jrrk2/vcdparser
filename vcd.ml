@@ -90,43 +90,27 @@ let xanal arr chngs f =
     Scope.path remnant pth; output_char remnant '\n'; remnantlst := arr.(ix) :: !remnantlst) pattern;
   (!remnantlst, !plotlst)
 
-let parse_vcd_ast max f =
+let parse_vcd_ast pattern f =
   let vars = Hashtbl.create 131071 in
   let chan = open_in f in
   let scopes,chnglst = parse_vcd_ast_from_chan chan in
   let crntlst, arr = readscopes vars scopes in
-(*
-  List.iter (function
-    | Tim n -> sim_time crntlst n
-    | Change (enc,lev) -> let (_,_,hd) = List.hd !crntlst in scalar_change vars hd enc lev
-    | Vector (lev,enc) -> let (_,_,hd) = List.hd !crntlst in vector_change vars hd lev enc
-    | Nochange -> ()
-    | Dumpvars -> ()
-    | Dumpall -> ()
-    | Dumpon -> ()
-    | Dumpoff -> ())
-    chnglst;
-  let chngs = Array.of_list (List.tl (List.rev (simx !crntlst))) in
-  let (remnantlst,plotlst) = xanal arr chngs f in
-  (remnantlst,plotlst)
-  *)
-  let fd = open_out "forcing.v" in
-  Printf.fprintf fd "`timescale 1ns/1ps;\n";
-  Printf.fprintf fd "module forcing;\n";
-  Printf.fprintf fd "\ninteger fd;\n\n";
   let old = ref "" and clst = ref [] in Array.iter (function
-    | (Vcd_types.REG,lst,rng) ->
+    | (_,lst,rng) ->
       let concat = String.concat "" (List.rev (List.map (function Pstr s -> "."^s | Pidx n -> "") lst)) in
-      if (List.hd lst <> Pstr "clk") && (concat <> !old) && (List.length lst <= max) then
-        clst := String.sub concat 1 (String.length concat - 1) :: !clst;
+      if (concat <> !old) then (match lst with
+        | Pstr nam :: _ ->
+          if Str.string_match pattern nam 0 then
+            clst := String.sub concat 1 (String.length concat - 1) :: !clst
+        | Pidx n :: Pstr nam :: _ ->
+          if Str.string_match pattern nam 0 then
+            clst := String.sub concat 1 (String.length concat - 1) :: !clst
+        | _ -> ());
       old := concat;
-    | _ -> ()) arr;
+    ) arr;
   let clst = List.sort compare !clst in
-  List.iter (fun concat -> Printf.fprintf fd "always @(%s)\n\t#1 if (1'bx === ^%s)\n\t\tbegin\n\t\tforce %s = 'b0;\n\t\t#1 release %s;\n\t\t$display(\"assign %s = 'b0;\");\n\t\tend\n\n" concat concat concat concat concat) clst;
-  Printf.fprintf fd "endmodule // forcing;\n";
-  close_out fd
+  List.iter print_endline clst
 
 let _ = match Array.length Sys.argv with
-    | 2 -> parse_vcd_ast 6 Sys.argv.(1)
-    | 3 -> parse_vcd_ast (int_of_string Sys.argv.(1)) Sys.argv.(2)
-    | _ -> print_endline ("Usage "^Sys.argv.(0)^" vcdfile or depth vcdfile")
+    | 3 -> parse_vcd_ast (Str.regexp Sys.argv.(1)) Sys.argv.(2)
+    | _ -> print_endline ("Usage "^Sys.argv.(0)^" pattern vcdfile")

@@ -82,7 +82,8 @@
 /* Parser rules */
 
 vcd_file:
-    vcd_header simulation_command_list EOF { ($1,List.rev $2) }
+//    vcd_header simulation_command_list EOF { ($1,List.rev $2) }
+    vcd_header { ($1,[]) }
 
 // HEADER
 vcd_header:
@@ -108,11 +109,31 @@ decl_command:
 ;
 
 vcd_decl_date 
-    : DATE NEWLINE IDENTIFIER IDENTIFIER DEC_NUM IDENTIFIER DEC_NUM NEWLINE END NEWLINE { DATE }
+    : DATE date_list END NEWLINE { DATE }
+    ;
+
+date_list:
+        { [] }
+    | date_list IDENTIFIER
+        { STRING $2 :: $1 }
+    | date_list DEC_NUM
+        { STRING $2 :: $1 }
+    | date_list NEWLINE
+        { $1 }
     ;
 
 vcd_decl_version 
-    : VERSION NEWLINE IDENTIFIER IDENTIFIER IDENTIFIER IDENTIFIER NEWLINE END NEWLINE { VERSION }
+    : VERSION version_list END NEWLINE { VERSION }
+    ;
+
+version_list:
+        { [] }
+    | version_list IDENTIFIER
+        { STRING $2 :: $1 }
+    | version_list DEC_NUM
+        { STRING $2 :: $1 }
+    | version_list NEWLINE
+        { $1 }
     ;
 
 vcd_decl_comment 
@@ -130,6 +151,8 @@ identifier_list:
 vcd_decl_timescale
     : TIMESCALE NEWLINE TIME_UNIT NEWLINE END NEWLINE
         { TIME_SCALE $3 }
+    | TIMESCALE TIME_UNIT END NEWLINE
+        { TIME_SCALE $2 }
     ;
 
 vcd_scope
@@ -209,4 +232,5 @@ simulation_command:
 	| 	DUMPOFF NEWLINE 	   { Dumpoff }
 	| 	DUMPVARS NEWLINE	   { Dumpvars }
 	| 	END NEWLINE		   { Nochange }
+	| 	NEWLINE                    { Nochange }
 	;

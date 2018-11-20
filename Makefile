@@ -19,23 +19,23 @@
 #**************************************************************************/
 
 MENHIR=/usr/lib/ocaml/menhirLib
-MFLAGS=--trace
+MFLAGS=#--trace
 
 .PHONY: everything
 
-everything: vcdregcnt.top vcdregcnt
+everything: vcdgrep.top vcdgrep
 
-vcdregcnt.top: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
-	ocamlfind ocamlmktop -package menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
+vcdgrep.top: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
+	ocamlfind ocamlmktop -package menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) str.cma vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
 
-vcdregcnt: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
-	ocamlfind ocamlopt -package menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
+vcdgrep: vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
+	ocamlfind ocamlopt -package menhirLib -thread -linkpkg -g -o $@ -I $(MENHIR) str.cmxa vcd_types.mli vcd_parser.mli ord.ml scope.ml vcd_parser.ml vcd_lexer.ml vcd.ml
 
 vcd_lexer.ml: vcd_lexer.mll
 	ocamllex vcd_lexer.mll
 
 vcd_parser.mli vcd_parser.ml: vcd_parser.mly
-	ocamlyacc vcd_parser.mly 
+	menhir $(MFLAGS) vcd_parser.mly 
 
 ord.ml: ord.sh vcd_parser.mli
 	sh ord.sh
