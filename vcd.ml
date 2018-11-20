@@ -129,4 +129,4 @@ let parse_vcd_ast max f =
 let _ = match Array.length Sys.argv with
     | 2 -> parse_vcd_ast 6 Sys.argv.(1)
     | 3 -> parse_vcd_ast (int_of_string Sys.argv.(1)) Sys.argv.(2)
-    | _ -> failwith ("Usage "^Sys.argv.(0)^" vcdfile or depth vcdfile")
+    | _ -> print_endline ("Usage "^Sys.argv.(0)^" vcdfile or depth vcdfile")

@@ -19,7 +19,7 @@
 #**************************************************************************/
 
 MENHIR=/usr/lib/ocaml/menhirLib
-MFLAGS=#--trace
+MFLAGS=--trace
 
 .PHONY: everything
 
