@@ -7,7 +7,5 @@ ord.ml
 vcd_lexer.ml
 vcd_parser.ml
 vcd_parser.mli
-vcdparser
-vcdparser.top
-vcdregcnt
-vcdregcnt.top
+vcdgrep
+vcdgrep.top

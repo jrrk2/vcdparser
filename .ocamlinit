@@ -22,4 +22,4 @@ open Vcd
 open Scope
 open Vcd_parser
 
-let _ = parse_vcd_ast (Str.regexp ".*state.*") "/local/scratch/jrrk2/lowrisc-chip-ariane_rocket_wrapper/ariane/test.vcd";;
+let _ = arr := parse_vcd_ast (Str.regexp ".*state.*") "/local/scratch/jrrk2/lowrisc-chip-ariane_rocket_wrapper/ariane/test.vcd";;

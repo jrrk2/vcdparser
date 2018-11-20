@@ -95,22 +95,24 @@ let parse_vcd_ast pattern f =
   let chan = open_in f in
   let scopes,chnglst = parse_vcd_ast_from_chan chan in
   let crntlst, arr = readscopes vars scopes in
+  let trim rng concat = String.sub concat 1 (String.length concat - 1) ^ match rng with SCALAR -> "" | RANGE(hi,lo) -> Printf.sprintf "[%d:%d]" hi lo in
   let old = ref "" and clst = ref [] in Array.iter (function
     | (_,lst,rng) ->
-      let concat = String.concat "" (List.rev (List.map (function Pstr s -> "."^s | Pidx n -> "") lst)) in
+      let concat = String.concat "" (List.rev (List.map (function Pstr s -> "."^s | _ -> "?") lst)) in
       if (concat <> !old) then (match lst with
-        | Pstr nam :: _ ->
+        | Pstr nam :: _
+        | Pidx _ :: Pstr nam :: _ ->
           if Str.string_match pattern nam 0 then
-            clst := String.sub concat 1 (String.length concat - 1) :: !clst
-        | Pidx n :: Pstr nam :: _ ->
-          if Str.string_match pattern nam 0 then
-            clst := String.sub concat 1 (String.length concat - 1) :: !clst
+            clst := trim rng concat :: !clst
         | _ -> ());
       old := concat;
     ) arr;
   let clst = List.sort compare !clst in
-  List.iter print_endline clst
+  List.iter print_endline clst;
+  arr
+
+let arr = ref [||]
 
 let _ = match Array.length Sys.argv with
-    | 3 -> parse_vcd_ast (Str.regexp Sys.argv.(1)) Sys.argv.(2)
+    | 3 -> arr := parse_vcd_ast (Str.regexp Sys.argv.(1)) Sys.argv.(2)
     | _ -> print_endline ("Usage "^Sys.argv.(0)^" pattern vcdfile")
