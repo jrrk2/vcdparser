@@ -22,4 +22,4 @@ open Vcd
 open Scope
 open Vcd_parser
 
-let _ = parse_vcd_ast "/local/scratch/jrrk2/lowrisc-chip-merge-jrrk/fpga/board/nexys4_ddr/vcs/test.vcd";;
+let scopes,chnglst,arr = parse_vcd_ast "/local/scratch/jrrk2/lowrisc-chip-genesys2/fpga/board/genesys2/iladata.vcd";;

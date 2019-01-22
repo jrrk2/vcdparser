@@ -86,8 +86,14 @@ vcd_file:
 
 // HEADER
 vcd_header:
-    decl_command_list ENDDEFNS END NEWLINE NEWLINE
+    decl_command_list ENDDEFNS END newline_lst
         { List.rev $1 }
+    ;
+
+newline_lst:
+        { [] }
+    | newline_lst NEWLINE
+        { $1 }
     ;
 
 decl_command_list:
@@ -107,12 +113,28 @@ decl_command:
     | vcd_decl_var { $1 }
 ;
 
+free_list:
+        { [] }
+    | free_list IDENTIFIER
+        { STRING $2 :: $1 }
+    | free_list DEC_NUM
+        { STRING $2 :: $1 }
+    | free_list NEWLINE
+        { $1 }
+(*
+    | free_list NEWLINE
+        { $2 :: $1 }
+    | free_list DASH
+        { $2 :: $1 }
+*)        
+    ;
+
 vcd_decl_date 
-    : DATE NEWLINE IDENTIFIER IDENTIFIER DEC_NUM IDENTIFIER DEC_NUM NEWLINE END NEWLINE { DATE }
+    : DATE NEWLINE free_list END NEWLINE { DATE }
     ;
 
 vcd_decl_version 
-    : VERSION NEWLINE IDENTIFIER IDENTIFIER IDENTIFIER IDENTIFIER NEWLINE END NEWLINE { VERSION }
+    : VERSION NEWLINE free_list END NEWLINE { VERSION }
     ;
 
 vcd_decl_comment 
