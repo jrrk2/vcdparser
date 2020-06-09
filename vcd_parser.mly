@@ -67,6 +67,7 @@
 %token    VERSION;
 %token <string>   BIN_NUM;
 %token <string>   DEC_NUM;
+%token <string>   REAL_NUM;
 %token <string>   TIME_UNIT;
 %token <string>   IDENTIFIER;
 %token    ML_COMMENT;
@@ -208,6 +209,7 @@ simulation_command:
 	|	BIN_NUM BIN_NUM NEWLINE    { Vector  ($1,$2) }
 	|	BIN_NUM TIME_UNIT NEWLINE  { Vector  ($1,$2) }
 	|	BIN_NUM SIM_TIME NEWLINE   { Vector  ($1,fst $2) }
+	|	REAL_NUM IDENTIFIER NEWLINE { Vector ($1,$2) }
 	|	ML_COMMENT NEWLINE         { Nochange }
 	|	DUMPALL NEWLINE 	   { Dumpall }
 	| 	DUMPON NEWLINE 		   { Dumpon }

@@ -81,6 +81,7 @@ let tok s =
 
 let ident = ['!'-'~']+
 let bin_num = ['b' 'B'] ['x' 'X' 'z' 'Z' '0' '1']+
+let real_num = 'r' ['-']* ['0'-'9']+'.'['0'-'9']+
 let dec_num = ['0'-'9']+
 let time = dec_num ("s" | "ms" | "us" | "ns" | "ps" | "fs")
 let space = [' ' '\t' '\r']+
@@ -98,6 +99,8 @@ rule token = parse
       { tok (BIN_NUM s) }
   | dec_num as s
       { tok (DEC_NUM s) }
+  | real_num as s
+      { tok (REAL_NUM s) }
   | time as s
       { tok (TIME_UNIT s) }
   | hash as s

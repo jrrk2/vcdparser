@@ -23,4 +23,5 @@ open Scope
 open Vcd_parser
 open Vcd_types
 
-let chngs, scopes = parse_vcd_ast "../hls/mersenne_hls/mersenne_hls.sim/sim_1/behav/dump.vcd" "../hls/alwaysx.v";;
+let chngs, scopes = parse_vcd_ast "../lowrisc-chip-update-nominion/fpga/board/nexys4_ddr/vcs/test.vcd" "dump.v";;
+
