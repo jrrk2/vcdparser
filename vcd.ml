@@ -38,7 +38,7 @@ let parse_vcd_ast_from_chan c =
       failwith (Printf.sprintf "Parser error at line %d" !Scope.lincnt)
 *)
   in
-  Pervasives.close_in c
+  Stdlib.close_in c
 
 let parse_vcd_ast f =
   let chan = open_in f in
@@ -57,7 +57,7 @@ let parse_vcd_ast f =
   output_string stillx "\ninitial\n\tbegin\n";
   for i = 0 to 1 do
   output_string stillx ("\t#"^string_of_int(990*i+10)^"\n");
-  String.iteri (fun ix ch -> if ch == 'x' then match arr.(ix) with
+  Bytes.iteri (fun ix ch -> if ch == 'x' then match arr.(ix) with
     | (REG,p,rng) ->
       output_string stillx (if i > 0 then "\trelease " else "\tforce ");
       path stillx p;

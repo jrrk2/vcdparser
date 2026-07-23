@@ -66,7 +66,7 @@
     WIRE, "wire";
     WOR, "wor";
       ]
-  let keyword = fun s -> let s = String.lowercase s in Hashtbl.find h s
+  let keyword = fun s -> let s = String.lowercase_ascii s in Hashtbl.find h s
 
 let tok k =
 if !verbose then ((match k with

@@ -46,7 +46,7 @@
 
   let sim_time n =
         let cnt = ref 0 in
-        String.iter (fun c -> if c = 'x' then incr cnt) !crnthd;
+        Bytes.iter (fun c -> if c = 'x' then incr cnt) !crnthd;
 (*
         Printf.fprintf !crntf "%d %d %s\n" n !cnt !crnthd;
  *)
@@ -115,7 +115,7 @@ vcd_file:
 
 // HEADER
 vcd_header:
-    decl_command_list ENDDEFNS END NEWLINE NEWLINE
+    decl_command_list ENDDEFNS END NEWLINE
         { ignore $1; crnthd := Bytes.init !varlen (fun _ -> 'x') }
     ;
 
@@ -261,4 +261,5 @@ simulation_command:
 	| 	DUMPOFF NEWLINE             { }
 	| 	DUMPVARS NEWLINE            { }
 	| 	END NEWLINE                 { }
+	|	NEWLINE                     { }
 	;
